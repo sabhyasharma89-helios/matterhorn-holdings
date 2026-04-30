@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>NSE F&O Options Dashboard — Live</title>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --navy:#1a237e;--navy2:#283593;--accent:#3949ab;--indigo:#5c6bc0;
+  --green:#15803d;--green-lt:#dcfce7;--red:#dc2626;--red-lt:#fee2e2;
+  --amber:#d97706;--purple:#7c3aed;--teal:#0e7490;
+  --col52h:#14532d;--col52l:#7f1d1d;--colRange:#1e3a5f;
+  --row-alt:#f5f7ff;--border:#d0d4f5;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,Helvetica,sans-serif;font-size:12px;background:#eef0ff;color:#1e1e2e}
+#hdr{background:linear-gradient(135deg,#0d1557,var(--navy),var(--accent));
+  color:#fff;padding:0 18px;height:52px;
+  display:flex;align-items:center;justify-content:space-between;
+  box-shadow:0 2px 12px rgba(0,0,0,.35);position:sticky;top:0;z-index:100}
+.hdr-l{display:flex;align-items:center;gap:10px}
+.live-dot{width:8px;height:8px;border-radius:50%;background:#22c55e;flex-shrink:0;
+  box-shadow:0 0 0 0 rgba(34,197,94,.6);animation:pulse 1.5s infinite}
+.live-dot.off{background:#555;animation:none;box-shadow:none}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(34,197,94,.5)}60%{box-shadow:0 0 0 7px rgba(34,197,94,0)}}
+#hdrTitle{font-size:16px;font-weight:700}
+#hdrSub{font-size:10px;opacity:.65;margin-top:1px}
+.hdr-r{display:flex;align-items:center;gap:8px}
+.wbadge{font-size:10px;padding:2px 9px;border-radius:10px;
+  border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.1);white-space:nowrap}
+.wbadge.live{background:rgba(34,197,94,.2);border-color:#22c55e;color:#bbf7d0}
+.wbadge.poll{background:rgba(251,191,36,.15);border-color:#fbbf24;color:#fef3c7}
+#lstUpd{font-size:10px;opacity:.75;white-space:nowrap}
+#cdBadge{font-size:10px;background:rgba(255,255,255,.1);padding:2px 9px;border-radius:10px;min-width:95px;text-align:center}
+.btn-h{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);
+  color:#fff;padding:4px 11px;border-radius:5px;cursor:pointer;font-size:11px;font-weight:600;white-space:nowrap}
+.btn-h:hover{background:rgba(255,255,255,.27)}
+#pg{height:3px;background:#c7d2fe;display:none}
+#pgF{height:100%;background:linear-gradient(90deg,var(--accent),var(--purple));width:0%}
+#ctrl{background:#fff;padding:6px 16px;display:flex;align-items:center;
+  gap:9px;flex-wrap:wrap;border-bottom:2px solid var(--border);
+  box-shadow:0 1px 5px rgba(0,0,0,.05)}
+#ctrl label{font-size:10.5px;font-weight:700;color:#444;white-space:nowrap}
+.fg{display:flex;align-items:center;gap:4px}
+#ctrl select,#ctrl input{height:26px;border:1px solid #c5cae9;border-radius:4px;
+  padding:0 7px;font-size:11px;color:#333;background:#fafbff}
+#ctrl select{min-width:142px}#searchBox{width:170px}
+#stockCount{margin-left:auto;font-size:11px;font-weight:700;color:var(--navy);white-space:nowrap}
+.btn-sm{padding:3px 11px;border:none;border-radius:4px;cursor:pointer;font-size:11px;font-weight:600;white-space:nowrap}
+.btn-export{background:#14532d;color:#fff}.btn-export:hover{background:#166534}
+#sum{display:flex;gap:7px;padding:6px 16px;background:#eef0ff;flex-wrap:wrap}
+.sc{background:#fff;border:1px solid var(--border);border-radius:6px;
+  padding:4px 13px;display:flex;flex-direction:column;align-items:center;
+  min-width:85px;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+.sc .v{font-size:14px;font-weight:700}.sc .l{font-size:9.5px;color:#777;margin-top:1px}
+.sc.g .v{color:var(--green)}.sc.r .v{color:var(--red)}.sc.a .v{color:var(--amber)}.sc.t .v{color:var(--teal)}
+#tw{overflow:auto;max-height:calc(100vh - 170px);
+  margin:0 8px 6px;border:1px solid var(--border);border-radius:7px;
+  box-shadow:0 2px 10px rgba(0,0,0,.07);background:#fff}
+table{border-collapse:collapse;white-space:nowrap;width:100%;font-size:11.5px}
+thead .grp-row th{background:#0f172a;color:rgba(255,255,255,.6);
+  font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;
+  padding:2px 7px;text-align:center;border-right:1px solid rgba(255,255,255,.1);
+  position:sticky;top:0;z-index:14;cursor:default;user-select:none}
+thead .grp-row th.g52h{background:var(--col52h);color:#bbf7d0}
+thead .grp-row th.g52l{background:var(--col52l);color:#fecaca}
+thead .grp-row th.gRng{background:var(--colRange);color:#bae6fd}
+thead .grp-row th.gBuy{background:#1b4332;color:#bbf7d0}
+thead .col-row th{background:var(--navy);color:#fff;
+  padding:5px 7px;text-align:right;position:sticky;top:21px;z-index:12;
+  cursor:pointer;user-select:none;border-right:1px solid rgba(255,255,255,.1);
+  font-size:10.5px;font-weight:600;line-height:1.3}
+thead .col-row th:hover{background:var(--navy2)}
+.si{margin-left:2px;opacity:.4;font-size:8.5px}
+.act .si{opacity:1;color:#ffd54f}
+thead .col-row th.th52h{background:var(--col52h)}
+thead .col-row th.th52h:hover{background:#166534}
+thead .col-row th.th52l{background:var(--col52l)}
+thead .col-row th.th52l:hover{background:#991b1b}
+thead .col-row th.thRng{background:var(--colRange);cursor:default!important}
+thead .col-row th.thRng:hover{background:var(--colRange)}
+thead .col-row th.thBuy{background:#1b4332}
+thead .col-row th.thBuy:hover{background:#14532d}
+th.s0,td.s0{position:sticky;left:0;z-index:11;min-width:28px;text-align:center!important;background:inherit}
+th.s1,td.s1{position:sticky;left:28px;z-index:11;min-width:185px;text-align:left!important;background:inherit;max-width:185px}
+th.s2,td.s2{position:sticky;left:213px;z-index:11;min-width:115px;text-align:left!important;background:inherit}
+th.s3,td.s3{position:sticky;left:328px;z-index:11;min-width:82px;text-align:left!important;background:inherit}
+thead th.s0,thead th.s1,thead th.s2,thead th.s3{background:var(--navy);z-index:22}
+thead .grp-row th.s0,thead .grp-row th.s1,thead .grp-row th.s2,thead .grp-row th.s3{background:#0f172a;z-index:24;position:sticky}
+thead .grp-row th.s1{left:28px}thead .grp-row th.s2{left:213px}thead .grp-row th.s3{left:328px}
+thead .col-row th.s1{left:28px}thead .col-row th.s2{left:213px}thead .col-row th.s3{left:328px}
+tbody tr{background:#fff}
+tbody tr:nth-child(even){background:var(--row-alt)}
+tbody tr:hover{background:#dde5ff!important}
+tbody td{padding:3px 7px;border-bottom:1px solid #eef0fb;text-align:right;border-right:1px solid #f0f2fe}
+td.s0,td.s1,td.s2,td.s3{border-right:1px solid var(--border)}
+td.s1{overflow:hidden;text-overflow:ellipsis;font-weight:600}
+td.s3{font-weight:700;color:var(--navy)}
+td.hi52{color:var(--green);font-weight:700}
+td.lo52{color:var(--red);font-weight:700}
+td.buy{color:var(--green);font-weight:600}
+.rng-wrap{min-width:100px;padding:2px 6px!important;text-align:center!important}
+.rng-track{height:6px;background:#e5e7eb;border-radius:3px;position:relative;overflow:hidden}
+.rng-fill{height:100%;border-radius:3px;position:absolute;left:0;top:0}
+.rng-pct{font-size:9.5px;color:#666;display:block;text-align:center;margin-top:2px;font-weight:600}
+.sec{background:#e8eaf6;border-radius:9px;padding:1px 6px;font-size:9.5px;color:#3949ab}
+@keyframes fG{0%{background:var(--green-lt)}100%{background:inherit}}
+@keyframes fR{0%{background:var(--red-lt)}100%{background:inherit}}
+.fga{animation:fG .9s ease-out}.fra{animation:fR .9s ease-out}
+.pos{color:var(--green);font-weight:600}.neg{color:var(--red);font-weight:600}
+.na{color:#ccc;font-style:italic;font-size:10px}
+mark{background:#fef9c3;padding:0}
+@keyframes rot{to{transform:rotate(360deg)}}
+#toast{position:fixed;bottom:16px;right:16px;background:#1e1e2e;color:#fff;
+  padding:9px 16px;border-radius:7px;font-size:12px;z-index:9999;
+  opacity:0;transition:opacity .3s;pointer-events:none}
+#toast.show{opacity:1}
+.no-data{text-align:center!important;padding:20px!important;color:#888;font-style:italic}
+</style>
+</head>
+<body>
+<div id="hdr">
+  <div class="hdr-l">
+    <span class="live-dot off" id="liveDot"></span>
+    <div>
+      <div id="hdrTitle">&#x1F4CA; NSE F&amp;O Options Dashboard &mdash; Live</div>
+      <div id="hdrSub">209 official options-eligible stocks &bull; All 52W data pre-loaded &bull; Live prices via Yahoo Finance</div>
+    </div>
+  </div>
+  <div class="hdr-r">
+    <span class="wbadge" id="wsBadge">Connecting&hellip;</span>
+    <span id="lstUpd"></span>
+    <span id="cdBadge">&mdash;</span>
+    <button class="btn-h" onclick="forceRefresh()">&#x21BB; Refresh</button>
+  </div>
+</div>
+<div id="pg"><div id="pgF"></div></div>
+<div id="ctrl">
+  <div class="fg"><label>Sector</label>
+    <select id="secFil" onchange="applyFilters()">
+      <option value="All">All Sectors</option>
+      <option value="Automobile and Auto Components">Automobile and Auto Components</option>
+      <option value="Capital Goods">Capital Goods</option>
+      <option value="Chemicals">Chemicals</option>
+      <option value="Construction">Construction</option>
+      <option value="Construction Materials">Construction Materials</option>
+      <option value="Consumer Durables">Consumer Durables</option>
+      <option value="Consumer Services">Consumer Services</option>
+      <option value="Fast Moving Consumer Goods">Fast Moving Consumer Goods</option>
+      <option value="Financial Services">Financial Services</option>
+      <option value="Healthcare">Healthcare</option>
+      <option value="Information Technology">Information Technology</option>
+      <option value="Metals & Mining">Metals & Mining</option>
+      <option value="Misc">Misc</option>
+      <option value="Oil Gas & Consumable Fuels">Oil Gas & Consumable Fuels</option>
+      <option value="Power">Power</option>
+      <option value="Realty">Realty</option>
+      <option value="Services">Services</option>
+      <option value="Telecommunication">Telecommunication</option>
+      <option value="Textiles">Textiles</option>
+    </select></div>
+  <div class="fg"><label>Search</label>
+    <input type="text" id="searchBox" placeholder="Company or Ticker&hellip;" oninput="applyFilters()"></div>
+  <div class="fg"><label>Max P/E</label>
+    <input type="number" id="maxPE" style="width:62px" oninput="applyFilters()"></div>
+  <div class="fg"><label>Min MCap &#x20B9;Cr</label>
+    <input type="number" id="minMcap" style="width:88px" oninput="applyFilters()"></div>
+  <div class="fg"><label>Movers</label>
+    <select id="chgFil" onchange="applyFilters()" style="min-width:105px">
+      <option value="all">All</option>
+      <option value="g">&#x25B2; Gainers</option>
+      <option value="l">&#x25BC; Losers</option>
+    </select></div>
+  <div class="fg"><label>52W Zone</label>
+    <select id="wkFil" onchange="applyFilters()" style="min-width:140px">
+      <option value="all">All</option>
+      <option value="nh">Near 52W High (&gt;80%)</option>
+      <option value="nl">Near 52W Low (&lt;20%)</option>
+    </select></div>
+  <span id="stockCount"></span>
+  <button class="btn-sm btn-export" onclick="exportXL()">&#x1F4E5; Export Excel</button>
+</div>
+<div id="sum">
+  <div class="sc"><div class="v" id="sTotal">0</div><div class="l">Showing</div></div>
+  <div class="sc g"><div class="v" id="sG">0</div><div class="l">&#x25B2; Gainers</div></div>
+  <div class="sc r"><div class="v" id="sL">0</div><div class="l">&#x25BC; Losers</div></div>
+  <div class="sc a"><div class="v" id="sF">0</div><div class="l">Flat</div></div>
+  <div class="sc"><div class="v" id="sAvgPE">&mdash;</div><div class="l">Avg P/E</div></div>
+  <div class="sc t"><div class="v" id="sNH">0</div><div class="l">Near 52W High</div></div>
+  <div class="sc r"><div class="v" id="sNL">0</div><div class="l">Near 52W Low</div></div>
+  <div class="sc"><div class="v" id="sLoaded">0/209</div><div class="l">Live Prices</div></div>
+  <div class="sc"><div class="v" id="sAge">&mdash;</div><div class="l">Data Age</div></div>
+</div>
+<div id="tw">
+<table id="tbl">
+<thead>
+<tr class="grp-row">
+  <th class="s0"></th>
+  <th class="s1" style="text-align:left">Company</th>
+  <th class="s2" style="text-align:left">Sector</th>
+  <th class="s3" style="text-align:left">Ticker</th>
+  <th colspan="1" style="text-align:center">Price</th>
+  <th colspan="3" class="g52h" style="text-align:center">&#x25B2; 52 WEEK HIGH</th>
+  <th colspan="3" class="g52l" style="text-align:center">&#x25BC; 52 WEEK LOW</th>
+  <th colspan="1" class="gRng" style="text-align:center">Range</th>
+  <th colspan="2" style="text-align:center">Daily Move</th>
+  <th colspan="9" style="text-align:center">Fundamentals</th>
+  <th colspan="4" style="text-align:center">F&amp;O Details</th>
+  <th colspan="3" class="gBuy" style="text-align:center">&#x1F3AF; Buy Targets</th>
+  <th colspan="1" style="text-align:center">Balance Sheet</th>
+</tr>
+<tr class="col-row">
+  <th class="s0" onclick="sortBy('#')">#<span class="si">&#x25B4;</span></th>
+  <th class="s1" onclick="sortBy('company')" style="text-align:left">Company<span class="si">&#x25B4;</span></th>
+  <th class="s2" onclick="sortBy('sector')" style="text-align:left">Sector<span class="si">&#x25B4;</span></th>
+  <th class="s3" onclick="sortBy('ticker')" style="text-align:left">Ticker<span class="si">&#x25B4;</span></th>
+  <th onclick="sortBy('cmp')">CMP &#x20B9;<span class="si">&#x25B4;</span></th>
+  <th class="th52h" onclick="sortBy('high52')">52W High &#x20B9;<span class="si">&#x25B4;</span></th>
+  <th class="th52h" onclick="sortBy('fromHigh')">% from High<span class="si">&#x25B4;</span></th>
+  <th class="th52h" style="cursor:default">High Date</th>
+  <th class="th52l" onclick="sortBy('low52')">52W Low &#x20B9;<span class="si">&#x25B4;</span></th>
+  <th class="th52l" onclick="sortBy('fromLow')">% from Low<span class="si">&#x25B4;</span></th>
+  <th class="th52l" style="cursor:default">Low Date</th>
+  <th class="thRng" style="text-align:center;cursor:default">Position in Range</th>
+  <th onclick="sortBy('chg')">Chg &#x20B9;<span class="si">&#x25B4;</span></th>
+  <th onclick="sortBy('chgPct')">Chg %<span class="si">&#x25B4;</span></th>
+  <th onclick="sortBy('de')">D/E<span class="si">&#x25B4;</span></th>
+  <th onclick="sortBy('cr')">CR<span class="si">&#x25B4;</span></th>
+  <th onclick="sortBy('roce')">ROCE %<span class="si">&#x25B4;</span></th>
+  <th onclick="sortBy('eps')">EPS &#x20B9;<span class="si">&#x25B4;</span></th>
+  <th onclick="sortBy('pe')">P/E<span class="si">&#x25B4;</span></th>
+  <th onclick="sortBy('indPE')">Ind PE<span class="si">&#x25B4;</span></th>
+  <th onclick="sortBy('bvps')">BVPS &#x20B9;<span class="si">&#x25B4;</span></th>
+  <th onclick="sortBy('pb')">P/B<span class="si">&#x25B4;</span></th>
+  <th onclick="sortBy('faceValue')">FV &#x20B9;<span class="si">&#x25B4;</span></th>
+  <th onclick="sortBy('mcap')">MCap &#x20B9;Cr<span class="si">&#x25B4;</span></th>
+  <th onclick="sortBy('lotSize')">Lot Size<span class="si">&#x25B4;</span></th>
+  <th onclick="sortBy('totalInv')">Total Inv &#x20B9;<span class="si">&#x25B4;</span></th>
+  <th onclick="sortBy('dps')">DPS &#x20B9;<span class="si">&#x25B4;</span></th>
+  <th onclick="sortBy('divYield')">Div Yield %<span class="si">&#x25B4;</span></th>
+  <th class="thBuy" onclick="sortBy('price10')">@10% off<span class="si">&#x25B4;</span></th>
+  <th class="thBuy" onclick="sortBy('price75')">@7.5% off<span class="si">&#x25B4;</span></th>
+  <th class="thBuy" onclick="sortBy('price5')">@5% off<span class="si">&#x25B4;</span></th>
+  <th onclick="sortBy('rs')">Reserve &amp; Surplus<span class="si">&#x25B4;</span></th>
+</tr>
+</thead>
+<tbody id="tbody"></tbody>
+</table>
+</div>
+<div id="toast"></div>
+<script>
+const STATIC = [{"company":"360 ONE WAM LIMITED","sector":"Financial Services","ticker":"360ONE","yf":"360ONE.NS","lotSize":500,"faceValue":1.0,"de":1.62,"cr":13.022,"roce":10.2,"eps":29.19,"pe":34.97,"indPE":34.97,"bvps":242.5335,"pb":4.2376,"dps":11.9995,"divYield":1.1463,"mcap":41769.18,"cmp":1027.75,"rs":"9794.94","high52":1273.8,"low52":882.6},{"company":"ABB India Limited","sector":"Capital Goods","ticker":"ABB","yf":"ABB.NS","lotSize":125,"faceValue":2.0,"de":0.011,"cr":2.049,"roce":24.3,"eps":78.3995,"pe":92.21,"indPE":92.21,"bvps":369.782,"pb":19.4155,"dps":38.9889,"divYield":0.5389,"mcap":152118.43,"cmp":7179.5,"rs":"8.49","high52":7822.5,"low52":4637.5},{"company":"Adani Energy Solutions Limited","sector":"Power","ticker":"ADANIENSOL","yf":"ADANIENSOL.NS","lotSize":675,"faceValue":10.0,"de":1.945,"cr":1.154,"roce":9.2,"eps":19.0,"pe":71.2,"indPE":71.2,"bvps":211.5925,"pb":6.2493,"dps":null,"divYield":null,"mcap":158893.66,"cmp":1322.3,"rs":null,"high52":1463.65,"low52":744.9},{"company":"Adani Enterprises Limited","sector":"Metals & Mining","ticker":"ADANIENT","yf":"ADANIENT.NS","lotSize":309,"faceValue":1.0,"de":1.778,"cr":null,"roce":null,"eps":101.8289,"pe":28.08,"indPE":93.19,"bvps":445.6102,"pb":5.3363,"dps":1.3003,"divYield":0.0536,"mcap":307212.21,"cmp":2377.9,"rs":null,"high52":2616.5,"low52":1753.0},{"company":"Adani Green Energy Limited","sector":"Power","ticker":"ADANIGREEN","yf":"ADANIGREEN.NS","lotSize":600,"faceValue":10.0,"de":3.465,"cr":0.569,"roce":6.0,"eps":9.65,"pe":130.6,"indPE":114.97,"bvps":113.2134,"pb":10.7218,"dps":null,"divYield":null,"mcap":199967.19,"cmp":1213.85,"rs":null,"high52":1271.95,"low52":765.0},{"company":"Adani Ports and Special Economic Zone Limited","sector":"Services","ticker":"ADANIPORTS","yf":"ADANIPORTS.NS","lotSize":475,"faceValue":2.0,"de":0.816,"cr":null,"roce":null,"eps":57.7304,"pe":31.16,"indPE":30.8,"bvps":310.4637,"pb":5.2476,"dps":6.9999,"divYield":0.4214,"mcap":375084.54,"cmp":1629.2,"rs":null,"high52":1672.0,"low52":1184.1},{"company":"Adani Power Limited","sector":"Power","ticker":"ADANIPOWER","yf":"ADANIPOWER.NS","lotSize":3550,"faceValue":2.0,"de":0.823,"cr":1.411,"roce":12.5,"eps":6.62,"pe":32.6,"indPE":32.6,"bvps":33.6236,"pb":6.4693,"dps":null,"divYield":null,"mcap":419557.82,"cmp":217.52,"rs":null,"high52":226.24,"low52":101.0},{"company":"Aditya Birla Capital Limited","sector":"Financial Services","ticker":"ABCAPITAL","yf":"ABCAPITAL.NS","lotSize":3100,"faceValue":10.0,"de":4.598,"cr":null,"roce":null,"eps":13.261,"pe":29.31,"indPE":28.85,"bvps":123.0418,"pb":2.7982,"dps":null,"divYield":null,"mcap":90198.38,"cmp":344.3,"rs":null,"high52":369.3,"low52":188.41},{"company":"Alkem Laboratories Limited","sector":"Healthcare","ticker":"ALKEM","yf":"ALKEM.NS","lotSize":125,"faceValue":2.0,"de":0.171,"cr":null,"roce":null,"eps":198.3132,"pe":26.35,"indPE":26.03,"bvps":1116.2644,"pb":4.8134,"dps":44.3766,"divYield":0.8304,"mcap":64242.27,"cmp":5373.0,"rs":null,"high52":5933.5,"low52":4716.2},{"company":"Amber Enterprises India Limited","sector":"Consumer Durables","ticker":"AMBER","yf":"AMBER.NS","lotSize":100,"faceValue":10.0,"de":0.743,"cr":null,"roce":null,"eps":45.6312,"pe":130.07,"indPE":138.02,"bvps":1037.8672,"pb":7.6816,"dps":null,"divYield":null,"mcap":28054.8,"cmp":7972.5,"rs":null,"high52":8626.0,"low52":5400.5},{"company":"Ambuja Cements Limited","sector":"Construction Materials","ticker":"AMBUJACEM","yf":"AMBUJACEM.NS","lotSize":1050,"faceValue":2.0,"de":0.018,"cr":null,"roce":null,"eps":14.8598,"pe":22.92,"indPE":20.83,"bvps":227.5494,"pb":1.9398,"dps":1.9771,"divYield":0.4349,"mcap":109118.65,"cmp":441.4,"rs":null,"high52":624.95,"low52":394.0},{"company":"Angel One Limited","sector":"Financial Services","ticker":"ANGELONE","yf":"ANGELONE.NS","lotSize":2500,"faceValue":1.0,"de":1.293,"cr":1.766,"roce":null,"eps":9.85,"pe":31.16,"indPE":31.16,"bvps":67.2459,"pb":4.5934,"dps":6.5212,"divYield":2.0828,"mcap":28151.93,"cmp":308.89,"rs":"6026.705","high52":330.23,"low52":208.63},{"company":"APL Apollo Tubes Limited","sector":"Capital Goods","ticker":"APLAPOLLO","yf":"APLAPOLLO.NS","lotSize":350,"faceValue":2.0,"de":0.155,"cr":null,"roce":null,"eps":41.0829,"pe":47.82,"indPE":47.82,"bvps":165.8745,"pb":11.484,"dps":5.6933,"divYield":0.2895,"mcap":52882.82,"cmp":1904.9,"rs":null,"high52":2301.4,"low52":1492.0},{"company":"Apollo Hospitals Enterprise Limited","sector":"Healthcare","ticker":"APOLLOHOSP","yf":"APOLLOHOSP.NS","lotSize":125,"faceValue":5.0,"de":0.836,"cr":null,"roce":null,"eps":125.3308,"pe":60.89,"indPE":60.39,"bvps":632.4531,"pb":12.0467,"dps":19.8815,"divYield":0.2579,"mcap":109686.13,"cmp":7619.0,"rs":null,"high52":8099.5,"low52":6677.5},{"company":"Ashok Leyland Limited","sector":"Capital Goods","ticker":"ASHOKLEY","yf":"ASHOKLEY.NS","lotSize":5000,"faceValue":1.0,"de":3.279,"cr":null,"roce":null,"eps":5.6284,"pe":27.37,"indPE":25.14,"bvps":21.4778,"pb":7.5278,"dps":5.25,"divYield":3.1678,"mcap":94980.23,"cmp":161.68,"rs":null,"high52":215.42,"low52":108.1},{"company":"Asian Paints Limited","sector":"Consumer Durables","ticker":"ASIANPAINT","yf":"ASIANPAINT.NS","lotSize":250,"faceValue":1.0,"de":0.176,"cr":null,"roce":null,"eps":40.1096,"pe":62.66,"indPE":58.95,"bvps":204.3398,"pb":11.8709,"dps":24.8939,"divYield":1.0172,"mcap":232672.61,"cmp":2425.7,"rs":null,"high52":2985.7,"low52":2115.0},{"company":"Astral Limited","sector":"Capital Goods","ticker":"ASTRAL","yf":"ASTRAL.NS","lotSize":425,"faceValue":1.0,"de":0.068,"cr":null,"roce":null,"eps":18.7306,"pe":83.48,"indPE":81.65,"bvps":140.6196,"pb":10.8868,"dps":3.7593,"divYield":0.2421,"mcap":40942.28,"cmp":1530.9,"rs":null,"high52":1768.7,"low52":1250.0},{"company":"AU Small Finance Bank Limited","sector":"Financial Services","ticker":"AUBANK","yf":"AUBANK.NS","lotSize":1000,"faceValue":10.0,"de":0.694,"cr":null,"roce":null,"eps":35.01,"pe":28.83,"indPE":28.83,"bvps":267.2358,"pb":3.8185,"dps":0.9993,"divYield":0.0982,"mcap":76396.21,"cmp":1020.45,"rs":null,"high52":1079.55,"low52":655.5},{"company":"Aurobindo Pharma Limited","sector":"Healthcare","ticker":"AUROPHARMA","yf":"AUROPHARMA.NS","lotSize":550,"faceValue":1.0,"de":0.222,"cr":null,"roce":null,"eps":60.0383,"pe":23.09,"indPE":22.79,"bvps":603.3953,"pb":2.3043,"dps":7.8542,"divYield":0.5623,"mcap":80737.23,"cmp":1390.4,"rs":null,"high52":1459.5,"low52":1016.1},{"company":"Avenue Supermarts Limited","sector":"Consumer Services","ticker":"DMART","yf":"DMART.NS","lotSize":150,"faceValue":10.0,"de":0.07,"cr":null,"roce":null,"eps":43.9001,"pe":104.58,"indPE":104.58,"bvps":351.8603,"pb":12.9176,"dps":null,"divYield":null,"mcap":296233.69,"cmp":4545.2,"rs":null,"high52":4949.5,"low52":3529.0},{"company":"Axis Bank Limited","sector":"Financial Services","ticker":"AXISBANK","yf":"AXISBANK.NS","lotSize":625,"faceValue":2.0,"de":1.3,"cr":null,"roce":null,"eps":84.9434,"pe":15.21,"indPE":15.21,"bvps":692.1177,"pb":1.8305,"dps":1.0034,"divYield":0.0774,"mcap":393575.53,"cmp":1266.9,"rs":null,"high52":1418.3,"low52":1042.5},{"company":"Bajaj Auto Limited","sector":"Automobile and Auto Components","ticker":"BAJAJ-AUTO","yf":"BAJAJ-AUTO.NS","lotSize":75,"faceValue":10.0,"de":null,"cr":null,"roce":null,"eps":363.5205,"pe":27.07,"indPE":26.91,"bvps":null,"pb":null,"dps":null,"divYield":null,"mcap":274983.95,"cmp":9840.5,"rs":null,"high52":10187.0,"low52":7612.0},{"company":"Bajaj Finance Limited","sector":"Financial Services","ticker":"BAJFINANCE","yf":"BAJFINANCE.NS","lotSize":750,"faceValue":1.0,"de":3.134,"cr":7.198,"roce":null,"eps":28.959,"pe":29.98,"indPE":29.7,"bvps":183.3603,"pb":5.1715,"dps":4.3998,"divYield":0.4731,"mcap":590656.28,"cmp":948.25,"rs":"113377.23","high52":1102.5,"low52":787.9},{"company":"Bajaj Finserv Limited","sector":"Financial Services","ticker":"BAJAJFINSV","yf":"BAJAJFINSV.NS","lotSize":250,"faceValue":1.0,"de":2.375,"cr":null,"roce":null,"eps":59.8948,"pe":14.72,"indPE":14.52,"bvps":480.6,"pb":3.6717,"dps":0.9915,"divYield":0.0562,"mcap":282433.05,"cmp":1764.6,"rs":null,"high52":2195.0,"low52":1597.0},{"company":"Bajaj Holdings & Investment Limited","sector":"Financial Services","ticker":"BAJAJHLDNG","yf":"BAJAJHLDNG.NS","lotSize":50,"faceValue":10.0,"de":0.0,"cr":null,"roce":null,"eps":790.3336,"pe":57.03,"indPE":178.78,"bvps":6095.8921,"pb":1.6774,"dps":93.8007,"divYield":0.9102,"mcap":113792.05,"cmp":10225.5,"rs":null,"high52":14763.0,"low52":8588.0},{"company":"Bandhan Bank Limited","sector":"Financial Services","ticker":"BANDHANBNK","yf":"BANDHANBNK.NS","lotSize":3600,"faceValue":10.0,"de":0.559,"cr":null,"roce":null,"eps":7.59,"pe":26.11,"indPE":26.11,"bvps":158.9638,"pb":1.2368,"dps":1.6649,"divYield":0.8396,"mcap":31639.62,"cmp":196.6,"rs":null,"high52":204.44,"low52":134.25},{"company":"Bank of Baroda","sector":"Financial Services","ticker":"BANKBARODA","yf":"BANKBARODA.NS","lotSize":2925,"faceValue":2.0,"de":0.864,"cr":null,"roce":null,"eps":37.6397,"pe":7.25,"indPE":7.25,"bvps":317.6952,"pb":0.8271,"dps":8.363,"divYield":3.1176,"mcap":135918.91,"cmp":262.76,"rs":null,"high52":325.5,"low52":212.55},{"company":"Bank of India","sector":"Financial Services","ticker":"BANKINDIA","yf":"BANKINDIA.NS","lotSize":5200,"faceValue":10.0,"de":1.226,"cr":null,"roce":null,"eps":21.5699,"pe":6.73,"indPE":6.48,"bvps":189.8613,"pb":0.7378,"dps":4.0208,"divYield":2.8076,"mcap":63796.53,"cmp":140.08,"rs":null,"high52":178.36,"low52":104.2},{"company":"Bharat Dynamics Limited","sector":"Capital Goods","ticker":"BDL","yf":"BDL.NS","lotSize":350,"faceValue":5.0,"de":0.0,"cr":null,"roce":null,"eps":15.8221,"pe":88.12,"indPE":88.12,"bvps":115.0587,"pb":11.8105,"dps":4.641,"divYield":0.3329,"mcap":49830.51,"cmp":1358.9,"rs":null,"high52":2096.6,"low52":1086.0},{"company":"Bharat Electronics Limited","sector":"Capital Goods","ticker":"BEL","yf":"BEL.NS","lotSize":1425,"faceValue":1.0,"de":0.003,"cr":null,"roce":null,"eps":8.1606,"pe":53.93,"indPE":53.93,"bvps":29.4755,"pb":14.5188,"dps":2.8537,"divYield":0.6522,"mcap":312821.98,"cmp":427.95,"rs":null,"high52":473.45,"low52":304.8},{"company":"Bharat Forge Limited","sector":"Automobile and Auto Components","ticker":"BHARATFORG","yf":"BHARATFORG.NS","lotSize":500,"faceValue":2.0,"de":0.714,"cr":null,"roce":null,"eps":23.6249,"pe":79.35,"indPE":76.68,"bvps":195.8408,"pb":9.4878,"dps":8.215,"divYield":0.4306,"mcap":88833.65,"cmp":1858.1,"rs":null,"high52":1949.9,"low52":1080.0},{"company":"Bharat Heavy Electricals Limited","sector":"Capital Goods","ticker":"BHEL","yf":"BHEL.NS","lotSize":2625,"faceValue":2.0,"de":0.45,"cr":null,"roce":null,"eps":2.3387,"pe":157.83,"indPE":157.83,"bvps":70.2925,"pb":4.924,"dps":0.4857,"divYield":0.141,"mcap":120531.62,"cmp":346.12,"rs":null,"high52":358.1,"low52":205.12},{"company":"Bharat Petroleum Corporation Limited","sector":"Oil Gas & Consumable Fuels","ticker":"BPCL","yf":"BPCL.NS","lotSize":1975,"faceValue":10.0,"de":0.564,"cr":null,"roce":null,"eps":57.5891,"pe":5.91,"indPE":5.82,"bvps":219.838,"pb":1.3649,"dps":22.2184,"divYield":7.3111,"mcap":130176.86,"cmp":300.05,"rs":null,"high52":391.65,"low52":266.6},{"company":"Bharti Airtel Limited","sector":"Telecommunication","ticker":"BHARTIARTL","yf":"BHARTIARTL.NS","lotSize":475,"faceValue":5.0,"de":1.171,"cr":0.45,"roce":18.0,"eps":49.9081,"pe":31.34,"indPE":31.05,"bvps":204.9158,"pb":9.1677,"dps":16.3207,"divYield":0.8644,"mcap":1144560.78,"cmp":1878.6,"rs":"121894.8","high52":2174.5,"low52":1746.9},{"company":"Biocon Limited","sector":"Healthcare","ticker":"BIOCON","yf":"BIOCON.NS","lotSize":2500,"faceValue":5.0,"de":0.5,"cr":null,"roce":null,"eps":4.7606,"pe":93.26,"indPE":48.91,"bvps":207.9211,"pb":1.7309,"dps":0.4992,"divYield":0.1378,"mcap":58336.47,"cmp":359.9,"rs":null,"high52":424.95,"low52":316.7},{"company":"Blue Star Limited","sector":"Consumer Durables","ticker":"BLUESTARCO","yf":"BLUESTARCO.NS","lotSize":325,"faceValue":2.0,"de":0.331,"cr":null,"roce":null,"eps":24.0386,"pe":75.91,"indPE":70.23,"bvps":150.8483,"pb":11.8158,"dps":8.7676,"divYield":0.4772,"mcap":36642.61,"cmp":1782.4,"rs":null,"high52":2040.0,"low52":1450.0},{"company":"Bosch Limited","sector":"Automobile and Auto Components","ticker":"BOSCHLTD","yf":"BOSCHLTD.NS","lotSize":25,"faceValue":10.0,"de":0.008,"cr":null,"roce":null,"eps":934.5566,"pe":38.91,"indPE":46.43,"bvps":4752.6351,"pb":7.5463,"dps":505.559,"divYield":1.391,"mcap":105882.17,"cmp":35865.0,"rs":null,"high52":41945.0,"low52":28395.0},{"company":"Britannia Industries Limited","sector":"Fast Moving Consumer Goods","ticker":"BRITANNIA","yf":"BRITANNIA.NS","lotSize":125,"faceValue":1.0,"de":0.584,"cr":null,"roce":null,"eps":100.2595,"pe":56.54,"indPE":56.54,"bvps":154.9973,"pb":36.7619,"dps":74.9991,"divYield":1.3137,"mcap":137246.76,"cmp":5698.0,"rs":null,"high52":6336.0,"low52":5276.5},{"company":"BSE Limited","sector":"Financial Services","ticker":"BSE","yf":"BSE.NS","lotSize":375,"faceValue":2.0,"de":0.0,"cr":null,"roce":null,"eps":52.8232,"pe":70.52,"indPE":70.52,"bvps":155.0045,"pb":23.3548,"dps":6.0134,"divYield":0.1654,"mcap":147686.67,"cmp":3620.1,"rs":null,"high52":3675.5,"low52":2021.5},{"company":"Canara Bank","sector":"Financial Services","ticker":"CANBK","yf":"CANBK.NS","lotSize":6750,"faceValue":2.0,"de":1.259,"cr":null,"roce":null,"eps":22.2668,"pe":6.97,"indPE":6.97,"bvps":129.3495,"pb":1.0375,"dps":3.9987,"divYield":2.9175,"mcap":121700.93,"cmp":134.2,"rs":null,"high52":162.89,"low52":90.95},{"company":"Central Depository Services (India) Limited","sector":"Financial Services","ticker":"CDSL","yf":"CDSL.NS","lotSize":475,"faceValue":10.0,"de":0.001,"cr":null,"roce":null,"eps":22.7881,"pe":57.15,"indPE":57.15,"bvps":83.3757,"pb":15.2766,"dps":12.4996,"divYield":0.9568,"mcap":26622.42,"cmp":1273.7,"rs":null,"high52":1828.9,"low52":1116.3},{"company":"CG Power and Industrial Solutions Limited","sector":"Capital Goods","ticker":"CGPOWER","yf":"CGPOWER.NS","lotSize":850,"faceValue":2.0,"de":0.015,"cr":null,"roce":null,"eps":7.1647,"pe":117.2,"indPE":114.66,"bvps":47.3601,"pb":17.0893,"dps":1.2995,"divYield":0.1574,"mcap":127475.38,"cmp":809.35,"rs":null,"high52":846.9,"low52":525.5},{"company":"Cholamandalam Investment and Finance Company Limited","sector":"Financial Services","ticker":"CHOLAFIN","yf":"CHOLAFIN.NS","lotSize":625,"faceValue":2.0,"de":7.243,"cr":null,"roce":null,"eps":56.9004,"pe":27.32,"indPE":27.32,"bvps":308.1929,"pb":4.9132,"dps":1.9836,"divYield":0.1277,"mcap":128989.91,"cmp":1514.2,"rs":null,"high52":1831.5,"low52":1299.4},{"company":"Cipla Limited","sector":"Healthcare","ticker":"CIPLA","yf":"CIPLA.NS","lotSize":375,"faceValue":2.0,"de":0.014,"cr":null,"roce":null,"eps":56.2498,"pe":23.42,"indPE":22.31,"bvps":407.5314,"pb":3.2307,"dps":12.9994,"divYield":0.9866,"mcap":106409.21,"cmp":1316.6,"rs":null,"high52":1673.0,"low52":1165.7},{"company":"Coal India Limited","sector":"Oil Gas & Consumable Fuels","ticker":"COALINDIA","yf":"COALINDIA.NS","lotSize":1350,"faceValue":10.0,"de":0.116,"cr":1.856,"roce":14.3,"eps":50.46,"pe":9.76,"indPE":9.76,"bvps":193.28,"pb":2.4917,"dps":26.4996,"divYield":5.5219,"mcap":296797.0,"cmp":481.6,"rs":"112938.83","high52":491.25,"low52":368.65},{"company":"Cochin Shipyard Limited","sector":"Capital Goods","ticker":"COCHINSHIP","yf":"COCHINSHIP.NS","lotSize":400,"faceValue":5.0,"de":0.203,"cr":null,"roce":null,"eps":27.6507,"pe":64.17,"indPE":64.17,"bvps":216.7068,"pb":8.0528,"dps":10.1993,"divYield":0.575,"mcap":45923.38,"cmp":1745.1,"rs":null,"high52":2545.0,"low52":1187.0},{"company":"Coforge Limited","sector":"Information Technology","ticker":"COFORGE","yf":"COFORGE.NS","lotSize":375,"faceValue":2.0,"de":0.109,"cr":null,"roce":null,"eps":33.425,"pe":30.77,"indPE":28.32,"bvps":205.6668,"pb":5.8347,"dps":16.0409,"divYield":1.3323,"mcap":40248.34,"cmp":1200.0,"rs":null,"high52":1994.0,"low52":1008.1},{"company":"Colgate Palmolive (India) Limited","sector":"Fast Moving Consumer Goods","ticker":"COLPAL","yf":"COLPAL.NS","lotSize":225,"faceValue":1.0,"de":0.038,"cr":null,"roce":null,"eps":48.797,"pe":43.71,"indPE":43.51,"bvps":58.1707,"pb":36.0078,"dps":51.6491,"divYield":2.422,"mcap":56970.11,"cmp":2094.6,"rs":null,"high52":2747.4,"low52":1782.0},{"company":"Computer Age Management Services Limited","sector":"Financial Services","ticker":"CAMS","yf":"CAMS.NS","lotSize":750,"faceValue":2.0,"de":0.064,"cr":null,"roce":null,"eps":18.6896,"pe":41.03,"indPE":41.03,"bvps":49.1839,"pb":15.0527,"dps":12.6792,"divYield":1.667,"mcap":18359.53,"cmp":740.35,"rs":null,"high52":875.0,"low52":611.4},{"company":"Container Corporation of India Limited","sector":"Services","ticker":"CONCOR","yf":"CONCOR.NS","lotSize":1250,"faceValue":5.0,"de":0.07,"cr":null,"roce":null,"eps":16.7757,"pe":31.5,"indPE":31.5,"bvps":167.9041,"pb":3.0258,"dps":9.2736,"divYield":1.8021,"mcap":38697.81,"cmp":508.05,"rs":null,"high52":652.04,"low52":421.45},{"company":"Crompton Greaves Consumer Electricals Limited","sector":"Consumer Durables","ticker":"CROMPTON","yf":"CROMPTON.NS","lotSize":1800,"faceValue":2.0,"de":0.048,"cr":null,"roce":null,"eps":7.1591,"pe":37.65,"indPE":35.45,"bvps":53.0011,"pb":5.0729,"dps":3.0709,"divYield":1.1126,"mcap":17333.54,"cmp":268.87,"rs":null,"high52":362.75,"low52":217.4},{"company":"Cummins India Limited","sector":"Capital Goods","ticker":"CUMMINSIND","yf":"CUMMINSIND.NS","lotSize":200,"faceValue":2.0,"de":0.003,"cr":null,"roce":null,"eps":80.9178,"pe":74.36,"indPE":71.3,"bvps":284.8069,"pb":18.4539,"dps":53.5146,"divYield":1.012,"mcap":145735.13,"cmp":5255.8,"rs":null,"high52":5324.8,"low52":2706.0},{"company":"Dabur India Limited","sector":"Fast Moving Consumer Goods","ticker":"DABUR","yf":"DABUR.NS","lotSize":1250,"faceValue":1.0,"de":0.115,"cr":null,"roce":null,"eps":10.3905,"pe":44.43,"indPE":44.15,"bvps":61.7481,"pb":7.1711,"dps":8.1036,"divYield":1.7771,"mcap":78521.26,"cmp":442.8,"rs":null,"high52":577.0,"low52":403.35},{"company":"Dalmia Bharat Limited","sector":"Construction Materials","ticker":"DALBHARAT","yf":"DALBHARAT.NS","lotSize":325,"faceValue":2.0,"de":0.409,"cr":1.547,"roce":7.1,"eps":60.7833,"pe":31.61,"indPE":30.86,"bvps":961.2029,"pb":1.9785,"dps":9.1441,"divYield":0.469,"mcap":35660.04,"cmp":1901.7,"rs":"17941.0","high52":2496.3,"low52":1717.3},{"company":"Delhivery Limited","sector":"Services","ticker":"DELHIVERY","yf":"DELHIVERY.NS","lotSize":2075,"faceValue":1.0,"de":0.172,"cr":null,"roce":null,"eps":2.0061,"pe":252.85,"indPE":211.19,"bvps":128.6271,"pb":3.5712,"dps":null,"divYield":null,"mcap":34391.27,"cmp":459.35,"rs":null,"high52":490.0,"low52":295.4},{"company":"Divi's Laboratories Limited","sector":"Healthcare","ticker":"DIVISLAB","yf":"DIVISLAB.NS","lotSize":100,"faceValue":2.0,"de":0.006,"cr":null,"roce":null,"eps":93.3691,"pe":69.97,"indPE":68.47,"bvps":580.9515,"pb":11.1584,"dps":30.468,"divYield":0.4663,"mcap":172090.01,"cmp":6482.5,"rs":null,"high52":7071.5,"low52":5636.5},{"company":"Dixon Technologies (India) Limited","sector":"Consumer Durables","ticker":"DIXON","yf":"DIXON.NS","lotSize":50,"faceValue":2.0,"de":0.297,"cr":null,"roce":null,"eps":264.7976,"pe":38.43,"indPE":43.89,"bvps":749.7521,"pb":14.8309,"dps":7.9615,"divYield":0.0703,"mcap":67614.75,"cmp":11119.5,"rs":null,"high52":18471.0,"low52":9600.0},{"company":"DLF Limited","sector":"Realty","ticker":"DLF","yf":"DLF.NS","lotSize":825,"faceValue":2.0,"de":0.041,"cr":null,"roce":null,"eps":17.8904,"pe":53.47,"indPE":56.86,"bvps":173.8173,"pb":3.3774,"dps":5.9998,"divYield":1.0093,"mcap":145387.63,"cmp":587.05,"rs":null,"high52":886.8,"low52":489.4},{"company":"Dr. Reddy's Laboratories Limited","sector":"Healthcare","ticker":"DRREDDY","yf":"DRREDDY.NS","lotSize":625,"faceValue":1.0,"de":0.18,"cr":1.88,"roce":16.4,"eps":67.9492,"pe":20.15,"indPE":20.15,"bvps":447.2499,"pb":2.9637,"dps":7.8857,"divYield":0.593,"mcap":110642.13,"cmp":1325.5,"rs":"1232.1","high52":1379.7,"low52":1129.4},{"company":"Eicher Motors Limited","sector":"Automobile and Auto Components","ticker":"EICHERMOT","yf":"EICHERMOT.NS","lotSize":100,"faceValue":1.0,"de":0.02,"cr":null,"roce":null,"eps":195.357,"pe":42.55,"indPE":42.16,"bvps":805.2557,"pb":8.7457,"dps":69.997,"divYield":0.9736,"mcap":193117.2,"cmp":7042.5,"rs":null,"high52":8230.0,"low52":5219.5},{"company":"ETERNAL LIMITED","sector":"Consumer Services","ticker":"ETERNAL","yf":"ETERNAL.NS","lotSize":2425,"faceValue":1.0,"de":0.148,"cr":2.768,"roce":-1.1,"eps":0.3983,"pe":669.8,"indPE":669.8,"bvps":33.8287,"pb":7.2329,"dps":null,"divYield":null,"mcap":236153.73,"cmp":244.68,"rs":"30061.0","high52":368.45,"low52":212.6},{"company":"Exide Industries Limited","sector":"Automobile and Auto Components","ticker":"EXIDEIND","yf":"EXIDEIND.NS","lotSize":1800,"faceValue":1.0,"de":0.112,"cr":null,"roce":null,"eps":9.7114,"pe":37.23,"indPE":36.93,"bvps":172.9898,"pb":2.0623,"dps":2.0593,"divYield":0.5666,"mcap":30323.75,"cmp":356.75,"rs":null,"high52":431.0,"low52":287.0},{"company":"FORCE MOTORS LTD","sector":"Automobile and Auto Components","ticker":"FORCEMOT","yf":"FORCEMOT.NS","lotSize":25,"faceValue":10.0,"de":null,"cr":null,"roce":null,"eps":1037.8343,"pe":22.57,"indPE":25.79,"bvps":2661.1042,"pb":7.4668,"dps":41.8861,"divYield":0.1996,"mcap":25896.4,"cmp":19870.0,"rs":null,"high52":26450.0,"low52":8745.0},{"company":"Fortis Healthcare Limited","sector":"Healthcare","ticker":"FORTIS","yf":"FORTIS.NS","lotSize":775,"faceValue":10.0,"de":0.33,"cr":null,"roce":null,"eps":12.7147,"pe":73.07,"indPE":69.48,"bvps":124.7757,"pb":7.3127,"dps":0.982,"divYield":0.105,"mcap":68882.38,"cmp":912.45,"rs":null,"high52":1104.3,"low52":646.7},{"company":"FSN E-Commerce Ventures Limited","sector":"Consumer Services","ticker":"NYKAA","yf":"NYKAA.NS","lotSize":3125,"faceValue":1.0,"de":0.977,"cr":null,"roce":null,"eps":0.4938,"pe":531.72,"indPE":488.26,"bvps":4.8371,"pb":54.518,"dps":null,"divYield":null,"mcap":75510.26,"cmp":263.71,"rs":null,"high52":285.6,"low52":188.5},{"company":"GAIL (India) Limited","sector":"Oil Gas & Consumable Fuels","ticker":"GAIL","yf":"GAIL.NS","lotSize":3150,"faceValue":10.0,"de":0.254,"cr":null,"roce":null,"eps":13.0515,"pe":14.96,"indPE":14.96,"bvps":134.0622,"pb":1.2094,"dps":12.4984,"divYield":7.5446,"mcap":106608.67,"cmp":162.14,"rs":null,"high52":202.79,"low52":134.36},{"company":"Glenmark Pharmaceuticals Limited","sector":"Healthcare","ticker":"GLENMARK","yf":"GLENMARK.NS","lotSize":375,"faceValue":1.0,"de":0.128,"cr":null,"roce":null,"eps":37.7418,"pe":63.96,"indPE":28.17,"bvps":339.5663,"pb":7.0826,"dps":5.0209,"divYield":0.208,"mcap":67858.01,"cmp":2405.0,"rs":null,"high52":2474.0,"low52":1355.4},{"company":"GMR AIRPORTS LIMITED","sector":"Services","ticker":"GMRAIRPORT","yf":"GMRAIRPORT.NS","lotSize":6975,"faceValue":1.0,"de":-22.24,"cr":null,"roce":null,"eps":null,"pe":null,"indPE":null,"bvps":-2.948,"pb":-32.2218,"dps":null,"divYield":null,"mcap":100299.71,"cmp":94.99,"rs":null,"high52":110.36,"low52":79.92},{"company":"Godfrey Phillips India Limited","sector":"Fast Moving Consumer Goods","ticker":"GODFRYPHLP","yf":"GODFRYPHLP.NS","lotSize":275,"faceValue":2.0,"de":0.03,"cr":null,"roce":null,"eps":82.3775,"pe":33.86,"indPE":33.86,"bvps":373.6324,"pb":6.0511,"dps":37.6562,"divYield":1.655,"mcap":35265.92,"cmp":2260.9,"rs":null,"high52":3947.0,"low52":1832.1},{"company":"Godrej Consumer Products Limited","sector":"Fast Moving Consumer Goods","ticker":"GODREJCP","yf":"GODREJCP.NS","lotSize":500,"faceValue":1.0,"de":0.338,"cr":null,"roce":null,"eps":17.808,"pe":61.23,"indPE":57.05,"bvps":118.8985,"pb":8.9282,"dps":19.9643,"divYield":1.8315,"mcap":108586.71,"cmp":1061.55,"rs":null,"high52":1309.0,"low52":967.05},{"company":"Godrej Properties Limited","sector":"Realty","ticker":"GODREJPROP","yf":"GODREJPROP.NS","lotSize":275,"faceValue":5.0,"de":0.879,"cr":null,"roce":null,"eps":52.545,"pe":33.57,"indPE":32.16,"bvps":607.9879,"pb":3.0239,"dps":null,"divYield":null,"mcap":55316.8,"cmp":1838.5,"rs":null,"high52":2506.5,"low52":1434.0},{"company":"Grasim Industries Limited","sector":"Construction Materials","ticker":"GRASIM","yf":"GRASIM.NS","lotSize":250,"faceValue":2.0,"de":1.266,"cr":null,"roce":null,"eps":66.5298,"pe":20.67,"indPE":20.16,"bvps":1468.6731,"pb":1.8874,"dps":10.0719,"divYield":0.3593,"mcap":188682.17,"cmp":2772.0,"rs":null,"high52":2979.0,"low52":2502.5},{"company":"Havells India Limited","sector":"Consumer Durables","ticker":"HAVELLS","yf":"HAVELLS.NS","lotSize":500,"faceValue":1.0,"de":0.028,"cr":1.707,"roce":17.4,"eps":26.94,"pe":47.34,"indPE":46.41,"bvps":150.6473,"pb":8.2577,"dps":9.8446,"divYield":0.786,"mcap":78030.75,"cmp":1244.0,"rs":"9392.74","high52":1633.0,"low52":1142.5},{"company":"HCL Technologies Limited","sector":"Information Technology","ticker":"HCLTECH","yf":"HCLTECH.NS","lotSize":350,"faceValue":2.0,"de":0.069,"cr":2.217,"roce":28.4,"eps":64.6989,"pe":19.56,"indPE":18.75,"bvps":274.8434,"pb":4.389,"dps":54.189,"divYield":4.515,"mcap":327186.6,"cmp":1206.3,"rs":null,"high52":1780.1,"low52":1184.0},{"company":"HDFC Asset Management Company Limited","sector":"Financial Services","ticker":"HDFCAMC","yf":"HDFCAMC.NS","lotSize":300,"faceValue":5.0,"de":null,"cr":1.693,"roce":37.8,"eps":66.5,"pe":41.8,"indPE":41.8,"bvps":215.5036,"pb":12.5831,"dps":53.9988,"divYield":1.9369,"mcap":116243.45,"cmp":2711.7,"rs":"9014.51","high52":2967.25,"low52":2087.5},{"company":"HDFC Bank Limited","sector":"Financial Services","ticker":"HDFCBANK","yf":"HDFCBANK.NS","lotSize":550,"faceValue":1.0,"de":0.967,"cr":null,"roce":null,"eps":49.28,"pe":15.43,"indPE":15.21,"bvps":380.7084,"pb":2.0334,"dps":12.9407,"divYield":1.6612,"mcap":1191584.81,"cmp":774.15,"rs":null,"high52":1020.5,"low52":726.65},{"company":"HDFC Life Insurance Company Limited","sector":"Financial Services","ticker":"HDFCLIFE","yf":"HDFCLIFE.NS","lotSize":1100,"faceValue":10.0,"de":0.175,"cr":1.029,"roce":null,"eps":8.86,"pe":67.11,"indPE":67.11,"bvps":82.4166,"pb":7.0587,"dps":2.1149,"divYield":0.3558,"mcap":125585.1,"cmp":581.75,"rs":"15591.72","high52":820.75,"low52":555.1},{"company":"Hero MotoCorp Limited","sector":"Automobile and Auto Components","ticker":"HEROMOTOCO","yf":"HEROMOTOCO.NS","lotSize":150,"faceValue":2.0,"de":0.034,"cr":null,"roce":null,"eps":272.1879,"pe":20.62,"indPE":20.24,"bvps":1049.6943,"pb":4.8043,"dps":176.3991,"divYield":3.449,"mcap":100905.27,"cmp":5043.0,"rs":null,"high52":6388.5,"low52":3725.0},{"company":"Hindalco Industries Limited","sector":"Metals & Mining","ticker":"HINDALCO","yf":"HINDALCO.NS","lotSize":700,"faceValue":1.0,"de":0.576,"cr":null,"roce":null,"eps":72.3909,"pe":14.92,"indPE":13.84,"bvps":607.5045,"pb":1.719,"dps":4.9774,"divYield":0.4664,"mcap":234700.34,"cmp":1044.3,"rs":null,"high52":1080.0,"low52":603.75},{"company":"Hindustan Aeronautics Limited","sector":"Capital Goods","ticker":"HAL","yf":"HAL.NS","lotSize":150,"faceValue":5.0,"de":0.0,"cr":null,"roce":null,"eps":133.0288,"pe":32.89,"indPE":32.89,"bvps":555.023,"pb":7.8321,"dps":39.9999,"divYield":0.9192,"mcap":290582.74,"cmp":4347.0,"rs":null,"high52":5165.0,"low52":3479.1},{"company":"Hindustan Petroleum Corporation Limited","sector":"Oil Gas & Consumable Fuels","ticker":"HINDPETRO","yf":"HINDPETRO.NS","lotSize":2025,"faceValue":10.0,"de":1.109,"cr":null,"roce":null,"eps":72.3753,"pe":5.46,"indPE":5.46,"bvps":267.3964,"pb":1.3923,"dps":10.0143,"divYield":2.6312,"mcap":79218.83,"cmp":372.3,"rs":null,"high52":508.45,"low52":316.2},{"company":"Hindustan Unilever Limited","sector":"Fast Moving Consumer Goods","ticker":"HINDUNILVR","yf":"HINDUNILVR.NS","lotSize":300,"faceValue":1.0,"de":0.036,"cr":null,"roce":null,"eps":43.0412,"pe":54.02,"indPE":51.58,"bvps":207.3832,"pb":10.8341,"dps":43.4667,"divYield":1.8781,"mcap":527600.72,"cmp":2246.8,"rs":null,"high52":2750.0,"low52":2022.5},{"company":"Hindustan Zinc Limited","sector":"Metals & Mining","ticker":"HINDZINC","yf":"HINDZINC.NS","lotSize":1225,"faceValue":2.0,"de":0.39,"cr":1.472,"roce":58.8,"eps":32.1381,"pe":18.73,"indPE":18.75,"bvps":53.5489,"pb":11.0843,"dps":10.7346,"divYield":1.783,"mcap":250645.92,"cmp":593.55,"rs":"21784.0","high52":733.0,"low52":398.0},{"company":"Hitachi Energy India Limited","sector":"Capital Goods","ticker":"POWERINDIA","yf":"POWERINDIA.NS","lotSize":25,"faceValue":2.0,"de":0.018,"cr":null,"roce":null,"eps":190.6049,"pe":174.23,"indPE":166.16,"bvps":1028.2307,"pb":32.2642,"dps":5.9851,"divYield":0.0182,"mcap":147868.81,"cmp":33175.0,"rs":null,"high52":33325.0,"low52":13962.0},{"company":"HYUNDAI MOTOR INDIA LTD","sector":"Misc","ticker":"HYUNDAI","yf":"HYUNDAI.NS","lotSize":275,"faceValue":null,"de":0.049,"cr":null,"roce":null,"eps":71.2496,"pe":25.5075,"indPE":null,"bvps":216.0759,"pb":8.4109,"dps":20.9092,"divYield":1.1505,"mcap":146460.53,"cmp":1817.4,"rs":null,"high52":null,"low52":null},{"company":"ICICI Bank Limited","sector":"Financial Services","ticker":"ICICIBANK","yf":"ICICIBANK.NS","lotSize":700,"faceValue":2.0,"de":0.58,"cr":null,"roce":null,"eps":74.77,"pe":15.92,"indPE":15.92,"bvps":506.9862,"pb":2.4995,"dps":11.8966,"divYield":0.9287,"mcap":908169.98,"cmp":1267.2,"rs":null,"high52":1500.0,"low52":1187.6},{"company":"ICICI Lombard General Insurance Company Limited","sector":"Financial Services","ticker":"ICICIGI","yf":"ICICIGI.NS","lotSize":325,"faceValue":10.0,"de":null,"cr":0.279,"roce":null,"eps":55.24,"pe":31.85,"indPE":31.85,"bvps":322.586,"pb":5.4134,"dps":13.4902,"divYield":0.7619,"mcap":87073.94,"cmp":1746.3,"rs":"15573.76","high52":2068.7,"low52":1629.5},{"company":"ICICI Prudential Life Insurance Company Limited","sector":"Financial Services","ticker":"ICICIPRULI","yf":"ICICIPRULI.NS","lotSize":925,"faceValue":10.0,"de":0.19,"cr":1.132,"roce":null,"eps":10.94,"pe":47.28,"indPE":47.28,"bvps":94.1646,"pb":5.4644,"dps":1.6617,"divYield":0.3169,"mcap":74604.0,"cmp":514.55,"rs":"12181.87","high52":706.8,"low52":491.45},{"company":"IDFC First Bank Limited","sector":"Financial Services","ticker":"IDFCFIRSTB","yf":"IDFCFIRSTB.NS","lotSize":9275,"faceValue":10.0,"de":0.773,"cr":null,"roce":null,"eps":1.8731,"pe":37.47,"indPE":37.47,"bvps":54.4805,"pb":1.2757,"dps":0.2544,"divYield":0.3626,"mcap":59780.94,"cmp":69.5,"rs":null,"high52":87.0,"low52":58.08},{"company":"Indian Bank","sector":"Financial Services","ticker":"INDIANB","yf":"INDIANB.NS","lotSize":1000,"faceValue":10.0,"de":0.612,"cr":null,"roce":null,"eps":85.4764,"pe":10.29,"indPE":9.85,"bvps":593.2493,"pb":1.4213,"dps":15.8772,"divYield":1.8134,"mcap":113549.06,"cmp":843.2,"rs":null,"high52":1000.9,"low52":546.1},{"company":"Indian Energy Exchange Limited","sector":"Financial Services","ticker":"IEX","yf":"IEX.NS","lotSize":3750,"faceValue":1.0,"de":0.008,"cr":1.995,"roce":44.3,"eps":5.54,"pe":23.76,"indPE":23.76,"bvps":15.2468,"pb":8.1853,"dps":3.9999,"divYield":3.1733,"mcap":11128.33,"cmp":124.8,"rs":"1275.4733","high52":215.4,"low52":114.6},{"company":"Indian Oil Corporation Limited","sector":"Oil Gas & Consumable Fuels","ticker":"IOC","yf":"IOC.NS","lotSize":4875,"faceValue":10.0,"de":0.726,"cr":null,"roce":null,"eps":25.9405,"pe":5.94,"indPE":5.94,"bvps":143.199,"pb":0.994,"dps":9.9999,"divYield":6.9352,"mcap":201001.71,"cmp":142.34,"rs":null,"high52":188.96,"low52":130.22},{"company":"Indian Railway Finance Corporation Limited","sector":"Financial Services","ticker":"IRFC","yf":"IRFC.NS","lotSize":4250,"faceValue":10.0,"de":7.446,"cr":10.586,"roce":null,"eps":5.3552,"pe":19.6,"indPE":19.6,"bvps":43.3601,"pb":2.3962,"dps":2.0999,"divYield":1.9984,"mcap":135781.78,"cmp":103.9,"rs":"43556.9","high52":148.95,"low52":87.0},{"company":"Indian Renewable Energy Development Agency Limited","sector":"Financial Services","ticker":"IREDA","yf":"IREDA.NS","lotSize":3450,"faceValue":10.0,"de":5.541,"cr":34.68,"roce":null,"eps":6.8349,"pe":20.47,"indPE":20.47,"bvps":48.1956,"pb":2.7886,"dps":null,"divYield":null,"mcap":37758.88,"cmp":134.4,"rs":"37.54","high52":186.58,"low52":108.65},{"company":"Indus Towers Limited","sector":"Telecommunication","ticker":"INDUSTOWER","yf":"INDUSTOWER.NS","lotSize":1700,"faceValue":10.0,"de":0.55,"cr":1.629,"roce":18.7,"eps":27.0369,"pe":15.31,"indPE":15.31,"bvps":143.5706,"pb":2.8505,"dps":null,"divYield":null,"mcap":107966.81,"cmp":409.25,"rs":"35223.4","high52":481.5,"low52":312.55},{"company":"IndusInd Bank Limited","sector":"Financial Services","ticker":"INDUSINDBK","yf":"INDUSINDBK.NS","lotSize":700,"faceValue":10.0,"de":0.651,"cr":null,"roce":null,"eps":11.41,"pe":80.06,"indPE":80.06,"bvps":844.1917,"pb":1.0807,"dps":1.5004,"divYield":0.1642,"mcap":71089.54,"cmp":912.3,"rs":null,"high52":968.85,"low52":710.6},{"company":"Info Edge (India) Limited","sector":"Consumer Services","ticker":"NAUKRI","yf":"NAUKRI.NS","lotSize":375,"faceValue":2.0,"de":0.005,"cr":null,"roce":null,"eps":20.7758,"pe":37.71,"indPE":37.69,"bvps":751.2899,"pb":1.293,"dps":5.9221,"divYield":0.5972,"mcap":62964.88,"cmp":971.4,"rs":null,"high52":1550.0,"low52":930.5},{"company":"Infosys Limited","sector":"Information Technology","ticker":"INFY","yf":"INFY.NS","lotSize":400,"faceValue":5.0,"de":0.098,"cr":1.978,"roce":37.4,"eps":75.0131,"pe":16.06,"indPE":15.59,"bvps":227.9882,"pb":5.1911,"dps":49.9994,"divYield":4.2826,"mcap":480145.25,"cmp":1183.5,"rs":null,"high52":1728.0,"low52":1149.8},{"company":"Inox Wind Limited","sector":"Capital Goods","ticker":"INOXWIND","yf":"INOXWIND.NS","lotSize":3575,"faceValue":10.0,"de":0.157,"cr":null,"roce":null,"eps":3.1209,"pe":33.01,"indPE":33.01,"bvps":50.91,"pb":1.9515,"dps":null,"divYield":null,"mcap":17163.13,"cmp":99.35,"rs":null,"high52":199.01,"low52":75.05},{"company":"InterGlobe Aviation Limited","sector":"Services","ticker":"INDIGO","yf":"INDIGO.NS","lotSize":150,"faceValue":10.0,"de":8.665,"cr":null,"roce":null,"eps":82.9731,"pe":52.33,"indPE":32.43,"bvps":223.3637,"pb":19.0416,"dps":9.781,"divYield":0.2251,"mcap":164533.73,"cmp":4253.2,"rs":null,"high52":6232.5,"low52":3895.2},{"company":"ITC Limited","sector":"Fast Moving Consumer Goods","ticker":"ITC","yf":"ITC.NS","lotSize":1600,"faceValue":1.0,"de":0.005,"cr":null,"roce":null,"eps":16.2602,"pe":19.45,"indPE":19.24,"bvps":56.7068,"pb":5.5602,"dps":14.3498,"divYield":4.5375,"mcap":394991.49,"cmp":315.3,"rs":null,"high52":444.2,"low52":287.0},{"company":"JINDAL STEEL LIMITED","sector":"Metals & Mining","ticker":"JINDALSTEL","yf":"JINDALSTEL.NS","lotSize":625,"faceValue":1.0,"de":0.38,"cr":null,"roce":null,"eps":19.5318,"pe":61.71,"indPE":0.0,"bvps":488.2354,"pb":2.4738,"dps":1.9993,"divYield":0.1628,"mcap":123206.24,"cmp":1207.8,"rs":null,"high52":1306.2,"low52":833.6},{"company":"Jio Financial Services Limited","sector":"Financial Services","ticker":"JIOFIN","yf":"JIOFIN.NS","lotSize":2350,"faceValue":10.0,"de":0.163,"cr":234.532,"roce":null,"eps":2.46,"pe":133.78,"indPE":136.34,"bvps":211.4358,"pb":1.1626,"dps":0.5997,"divYield":0.2392,"mcap":162437.28,"cmp":245.81,"rs":"127500.45","high52":338.6,"low52":223.3},{"company":"JSW Energy Limited","sector":"Power","ticker":"JSWENERGY","yf":"JSWENERGY.NS","lotSize":1000,"faceValue":10.0,"de":2.187,"cr":null,"roce":null,"eps":12.9742,"pe":38.03,"indPE":36.88,"bvps":166.9683,"pb":3.3437,"dps":1.9513,"divYield":0.3482,"mcap":98109.63,"cmp":558.3,"rs":null,"high52":585.65,"low52":427.75},{"company":"JSW Steel Limited","sector":"Metals & Mining","ticker":"JSWSTEEL","yf":"JSWSTEEL.NS","lotSize":675,"faceValue":1.0,"de":1.187,"cr":null,"roce":null,"eps":30.5501,"pe":37.64,"indPE":35.81,"bvps":340.3166,"pb":3.6919,"dps":2.855,"divYield":0.2231,"mcap":307246.84,"cmp":1256.4,"rs":null,"high52":1306.8,"low52":935.0},{"company":"Jubilant Foodworks Limited","sector":"Consumer Services","ticker":"JUBLFOOD","yf":"JUBLFOOD.NS","lotSize":1250,"faceValue":2.0,"de":2.023,"cr":null,"roce":null,"eps":4.8465,"pe":99.11,"indPE":95.58,"bvps":34.4385,"pb":13.8058,"dps":1.1999,"divYield":0.2472,"mcap":31375.64,"cmp":475.45,"rs":null,"high52":727.95,"low52":408.8},{"company":"Kalyan Jewellers India Limited","sector":"Consumer Durables","ticker":"KALYANKJIL","yf":"KALYANKJIL.NS","lotSize":1175,"faceValue":10.0,"de":0.999,"cr":null,"roce":null,"eps":10.9407,"pe":37.74,"indPE":36.82,"bvps":51.669,"pb":7.9158,"dps":1.4991,"divYield":0.3635,"mcap":42239.07,"cmp":409.0,"rs":null,"high52":617.7,"low52":347.5},{"company":"Kaynes Technology India Limited","sector":"Capital Goods","ticker":"KAYNES","yf":"KAYNES.NS","lotSize":100,"faceValue":10.0,"de":0.189,"cr":null,"roce":null,"eps":59.2166,"pe":70.89,"indPE":70.61,"bvps":715.4958,"pb":5.5682,"dps":null,"divYield":null,"mcap":26706.61,"cmp":3984.0,"rs":null,"high52":7705.0,"low52":3294.9},{"company":"KEI Industries Limited","sector":"Capital Goods","ticker":"KEI","yf":"KEI.NS","lotSize":175,"faceValue":2.0,"de":0.038,"cr":null,"roce":null,"eps":90.0394,"pe":54.82,"indPE":54.82,"bvps":647.3667,"pb":7.3424,"dps":4.5996,"divYield":0.0932,"mcap":45440.87,"cmp":4753.2,"rs":null,"high52":5303.0,"low52":2942.0},{"company":"Kfin Technologies Limited","sector":"Financial Services","ticker":"KFINTECH","yf":"KFINTECH.NS","lotSize":500,"faceValue":10.0,"de":0.033,"cr":3.304,"roce":19.4,"eps":19.81,"pe":48.95,"indPE":47.74,"bvps":96.9009,"pb":9.453,"dps":7.6786,"divYield":0.7857,"mcap":15800.14,"cmp":916.0,"rs":"1500.542","high52":1388.5,"low52":866.0},{"company":"Kotak Mahindra Bank Limited","sector":"Financial Services","ticker":"KOTAKBANK","yf":"KOTAKBANK.NS","lotSize":2000,"faceValue":1.0,"de":0.492,"cr":null,"roce":null,"eps":18.9185,"pe":20.33,"indPE":20.33,"bvps":169.003,"pb":2.2553,"dps":0.5065,"divYield":0.1326,"mcap":379059.78,"cmp":381.15,"rs":null,"high52":453.2,"low52":345.5},{"company":"KPIT Technologies Limited","sector":"Information Technology","ticker":"KPITTECH","yf":"KPITTECH.NS","lotSize":425,"faceValue":10.0,"de":0.162,"cr":null,"roce":null,"eps":26.2579,"pe":27.53,"indPE":26.03,"bvps":120.0419,"pb":6.2466,"dps":8.3122,"divYield":1.1232,"mcap":20556.67,"cmp":749.85,"rs":null,"high52":1434.5,"low52":624.9},{"company":"L&T Finance Limited","sector":"Financial Services","ticker":"LTF","yf":"LTF.NS","lotSize":2250,"faceValue":10.0,"de":3.934,"cr":56.472,"roce":null,"eps":11.88,"pe":23.97,"indPE":23.81,"bvps":111.7079,"pb":2.5132,"dps":2.7497,"divYield":0.9634,"mcap":70316.92,"cmp":280.74,"rs":"25479.14","high52":329.45,"low52":159.66},{"company":"Larsen & Toubro Limited","sector":"Construction","ticker":"LT","yf":"LT.NS","lotSize":175,"faceValue":2.0,"de":1.118,"cr":null,"roce":null,"eps":118.1947,"pe":29.7,"indPE":28.29,"bvps":736.9893,"pb":5.4301,"dps":34.0017,"divYield":0.8301,"mcap":550486.73,"cmp":4001.9,"rs":null,"high52":4440.0,"low52":3254.8},{"company":"Laurus Labs Limited","sector":"Healthcare","ticker":"LAURUSLABS","yf":"LAURUSLABS.NS","lotSize":850,"faceValue":2.0,"de":0.448,"cr":null,"roce":null,"eps":15.6096,"pe":70.93,"indPE":70.93,"bvps":88.975,"pb":12.3422,"dps":1.6226,"divYield":0.1467,"mcap":59276.25,"cmp":1098.15,"rs":null,"high52":1144.85,"low52":572.25},{"company":"LIC Housing Finance Limited","sector":"Financial Services","ticker":"LICHSGFIN","yf":"LICHSGFIN.NS","lotSize":1000,"faceValue":2.0,"de":6.793,"cr":null,"roce":null,"eps":99.7083,"pe":5.64,"indPE":5.64,"bvps":700.2428,"pb":0.7918,"dps":10.2204,"divYield":1.8181,"mcap":30503.74,"cmp":554.45,"rs":null,"high52":646.5,"low52":458.9},{"company":"Life Insurance Corporation Of India","sector":"Financial Services","ticker":"LICI","yf":"LICI.NS","lotSize":700,"faceValue":10.0,"de":null,"cr":null,"roce":null,"eps":89.6459,"pe":9.7,"indPE":9.7,"bvps":192.5516,"pb":4.1545,"dps":11.9227,"divYield":1.4675,"mcap":505999.82,"cmp":799.95,"rs":null,"high52":980.0,"low52":721.5},{"company":"Lodha Developers Limited","sector":"Realty","ticker":"LODHA","yf":"LODHA.NS","lotSize":450,"faceValue":10.0,"de":0.422,"cr":1.749,"roce":16.4,"eps":34.25,"pe":26.65,"indPE":26.65,"bvps":233.1161,"pb":3.8672,"dps":4.3928,"divYield":0.4813,"mcap":90079.73,"cmp":901.5,"rs":"22287.3","high52":1531.0,"low52":650.8},{"company":"LTM Limited","sector":"Information Technology","ticker":"LTM","yf":"LTM.NS","lotSize":150,"faceValue":1.0,"de":0.096,"cr":2.831,"roce":23.7,"eps":169.13,"pe":25.72,"indPE":23.9,"bvps":810.4965,"pb":5.2573,"dps":74.9971,"divYield":1.7348,"mcap":126374.35,"cmp":4261.0,"rs":"23995.4","high52":6429.5,"low52":4000.0},{"company":"Lupin Limited","sector":"Healthcare","ticker":"LUPIN","yf":"LUPIN.NS","lotSize":425,"faceValue":2.0,"de":0.315,"cr":null,"roce":null,"eps":101.6242,"pe":22.63,"indPE":20.97,"bvps":429.8681,"pb":5.3616,"dps":11.9546,"divYield":0.5172,"mcap":105366.07,"cmp":2304.8,"rs":null,"high52":2381.0,"low52":1836.8},{"company":"Mahindra & Mahindra Limited","sector":"Automobile and Auto Components","ticker":"M&M","yf":"M%26M.NS","lotSize":200,"faceValue":5.0,"de":1.323,"cr":null,"roce":null,"eps":139.7511,"pe":26.04,"indPE":25.68,"bvps":741.9936,"pb":4.1591,"dps":25.8236,"divYield":0.8192,"mcap":383740.56,"cmp":3086.0,"rs":null,"high52":3839.9,"low52":2887.0},{"company":"Manappuram Finance Limited","sector":"Financial Services","ticker":"MANAPPURAM","yf":"MANAPPURAM.NS","lotSize":3000,"faceValue":2.0,"de":3.016,"cr":null,"roce":null,"eps":4.8208,"pe":64.91,"indPE":64.91,"bvps":148.585,"pb":1.9729,"dps":2.0255,"divYield":0.6858,"mcap":24796.31,"cmp":293.15,"rs":null,"high52":321.6,"low52":226.02},{"company":"Mankind Pharma Limited","sector":"Healthcare","ticker":"MANKIND","yf":"MANKIND.NS","lotSize":225,"faceValue":1.0,"de":0.539,"cr":null,"roce":null,"eps":43.2049,"pe":51.86,"indPE":49.8,"bvps":370.2631,"pb":6.0616,"dps":null,"divYield":null,"mcap":92700.6,"cmp":2244.4,"rs":null,"high52":2716.5,"low52":1909.7},{"company":"Marico Limited","sector":"Fast Moving Consumer Goods","ticker":"MARICO","yf":"MARICO.NS","lotSize":1200,"faceValue":1.0,"de":0.137,"cr":null,"roce":null,"eps":13.2246,"pe":57.81,"indPE":57.81,"bvps":31.2583,"pb":24.8238,"dps":10.5361,"divYield":1.352,"mcap":100690.92,"cmp":775.95,"rs":null,"high52":813.5,"low52":680.3},{"company":"Maruti Suzuki India Limited","sector":"Automobile and Auto Components","ticker":"MARUTI","yf":"MARUTI.NS","lotSize":50,"faceValue":5.0,"de":0.001,"cr":1.068,"roce":13.1,"eps":466.9,"pe":28.96,"indPE":28.96,"bvps":3408.2673,"pb":3.8503,"dps":143.9578,"divYield":1.0859,"mcap":412684.82,"cmp":13123.0,"rs":"106999.1","high52":17370.0,"low52":11741.0},{"company":"Max Financial Services Limited","sector":"Financial Services","ticker":"MFSL","yf":"MFSL.NS","lotSize":400,"faceValue":2.0,"de":0.353,"cr":null,"roce":null,"eps":4.1243,"pe":312.46,"indPE":312.46,"bvps":152.9795,"pb":10.3328,"dps":null,"divYield":null,"mcap":54535.04,"cmp":1580.7,"rs":null,"high52":1892.5,"low52":1248.6},{"company":"Max Healthcare Institute Limited","sector":"Healthcare","ticker":"MAXHEALTH","yf":"MAXHEALTH.NS","lotSize":525,"faceValue":10.0,"de":0.326,"cr":null,"roce":null,"eps":14.5967,"pe":69.03,"indPE":67.04,"bvps":102.7134,"pb":9.6141,"dps":1.4998,"divYield":0.149,"mcap":96078.43,"cmp":987.5,"rs":null,"high52":1314.3,"low52":903.0},{"company":"Mazagon Dock Shipbuilders Limited","sector":"Capital Goods","ticker":"MAZDOCK","yf":"MAZDOCK.NS","lotSize":200,"faceValue":5.0,"de":0.0,"cr":null,"roce":null,"eps":59.6602,"pe":49.51,"indPE":49.51,"bvps":220.8902,"pb":12.3238,"dps":16.2083,"divYield":0.5852,"mcap":109804.07,"cmp":2722.2,"rs":null,"high52":3775.0,"low52":2057.4},{"company":"Motilal Oswal Financial Services Limited","sector":"Financial Services","ticker":"MOTILALOFS","yf":"MOTILALOFS.NS","lotSize":775,"faceValue":1.0,"de":1.644,"cr":5.502,"roce":null,"eps":30.46,"pe":25.33,"indPE":25.33,"bvps":214.9185,"pb":3.7572,"dps":6.0166,"divYield":0.7665,"mcap":48570.11,"cmp":807.5,"rs":"12827.93","high52":1097.1,"low52":614.9},{"company":"MphasiS Limited","sector":"Information Technology","ticker":"MPHASIS","yf":"MPHASIS.NS","lotSize":275,"faceValue":10.0,"de":0.244,"cr":1.376,"roce":23.4,"eps":97.6974,"pe":23.06,"indPE":22.74,"bvps":563.4947,"pb":4.1216,"dps":56.4025,"divYield":2.506,"mcap":44325.48,"cmp":2322.5,"rs":"10552.885","high52":3037.2,"low52":2013.0},{"company":"Multi Commodity Exchange of India Limited","sector":"Financial Services","ticker":"MCX","yf":"MCX.NS","lotSize":625,"faceValue":2.0,"de":0.0,"cr":null,"roce":null,"eps":36.7627,"pe":80.7421,"indPE":null,"bvps":122.3996,"pb":24.139,"dps":6.1444,"divYield":0.207,"mcap":75299.09,"cmp":2954.6,"rs":null,"high52":2985.1,"low52":1120.0},{"company":"Muthoot Finance Limited","sector":"Financial Services","ticker":"MUTHOOTFIN","yf":"MUTHOOTFIN.NS","lotSize":275,"faceValue":10.0,"de":3.846,"cr":153.357,"roce":null,"eps":217.1573,"pe":16.06,"indPE":16.06,"bvps":887.2753,"pb":3.8655,"dps":25.7402,"divYield":0.7437,"mcap":137615.36,"cmp":3429.8,"rs":"35222.089","high52":4149.5,"low52":2027.0},{"company":"National Aluminium Company Limited","sector":"Metals & Mining","ticker":"NATIONALUM","yf":"NATIONALUM.NS","lotSize":1875,"faceValue":5.0,"de":0.003,"cr":null,"roce":null,"eps":33.4394,"pe":12.88,"indPE":12.88,"bvps":108.064,"pb":3.8288,"dps":10.7957,"divYield":2.4915,"mcap":75963.09,"cmp":413.75,"rs":null,"high52":445.15,"low52":149.0},{"company":"NBCC (India) Limited","sector":"Construction","ticker":"NBCC","yf":"NBCC.NS","lotSize":6500,"faceValue":1.0,"de":0.0,"cr":null,"roce":null,"eps":2.423,"pe":37.45,"indPE":36.76,"bvps":9.918,"pb":9.1893,"dps":0.68,"divYield":0.7296,"mcap":24610.5,"cmp":91.14,"rs":null,"high52":130.7,"low52":77.18},{"company":"Nestle India Limited","sector":"Fast Moving Consumer Goods","ticker":"NESTLEIND","yf":"NESTLEIND.NS","lotSize":500,"faceValue":1.0,"de":0.086,"cr":0.964,"roce":54.7,"eps":18.1396,"pe":79.73,"indPE":82.31,"bvps":26.7434,"pb":54.2713,"dps":12.2099,"divYield":0.8331,"mcap":279894.82,"cmp":1451.4,"rs":"4964.14","high52":1470.0,"low52":1084.7},{"company":"NHPC Limited","sector":"Power","ticker":"NHPC","yf":"NHPC.NS","lotSize":6400,"faceValue":10.0,"de":1.004,"cr":null,"roce":null,"eps":3.1537,"pe":23.54,"indPE":23.54,"bvps":41.1817,"pb":2.0002,"dps":1.9099,"divYield":2.2713,"mcap":82751.0,"cmp":82.37,"rs":null,"high52":92.34,"low52":71.62},{"company":"Nippon Life India Asset Management Limited","sector":"Financial Services","ticker":"NAM-INDIA","yf":"NAM-INDIA.NS","lotSize":625,"faceValue":10.0,"de":null,"cr":null,"roce":null,"eps":23.4881,"pe":42.96,"indPE":42.96,"bvps":null,"pb":null,"dps":null,"divYield":null,"mcap":64405.05,"cmp":1009.05,"rs":null,"high52":1065.0,"low52":613.0},{"company":"NMDC Limited","sector":"Metals & Mining","ticker":"NMDC","yf":"NMDC.NS","lotSize":6750,"faceValue":1.0,"de":0.112,"cr":null,"roce":null,"eps":7.8458,"pe":11.7,"indPE":11.7,"bvps":36.9174,"pb":2.4395,"dps":3.5325,"divYield":3.851,"mcap":79179.11,"cmp":90.06,"rs":null,"high52":92.77,"low52":62.0},{"company":"NTPC Limited","sector":"Power","ticker":"NTPC","yf":"NTPC.NS","lotSize":1500,"faceValue":10.0,"de":1.278,"cr":null,"roce":null,"eps":24.9242,"pe":17.28,"indPE":17.28,"bvps":198.221,"pb":2.0149,"dps":8.2359,"divYield":2.0523,"mcap":387575.75,"cmp":399.4,"rs":null,"high52":414.4,"low52":315.55},{"company":"Nuvama Wealth Management Limited","sector":"Financial Services","ticker":"NUVAMA","yf":"NUVAMA.NS","lotSize":500,"faceValue":2.0,"de":2.376,"cr":null,"roce":null,"eps":55.2618,"pe":24.08,"indPE":24.08,"bvps":210.3842,"pb":6.2719,"dps":39.4526,"divYield":2.9311,"mcap":24018.56,"cmp":1319.5,"rs":null,"high52":1701.7,"low52":1096.9},{"company":"Oberoi Realty Limited","sector":"Realty","ticker":"OBEROIRLTY","yf":"OBEROIRLTY.NS","lotSize":350,"faceValue":10.0,"de":0.181,"cr":null,"roce":null,"eps":61.537,"pe":27.98,"indPE":27.76,"bvps":460.4097,"pb":3.6211,"dps":7.9523,"divYield":0.4677,"mcap":60612.49,"cmp":1667.2,"rs":null,"high52":2005.0,"low52":1391.2},{"company":"Oil & Natural Gas Corporation Limited","sector":"Oil Gas & Consumable Fuels","ticker":"ONGC","yf":"ONGC.NS","lotSize":2250,"faceValue":5.0,"de":0.438,"cr":null,"roce":null,"eps":30.2354,"pe":8.59,"indPE":8.58,"bvps":292.5894,"pb":1.0223,"dps":13.5042,"divYield":4.4805,"mcap":376339.05,"cmp":299.1,"rs":null,"high52":307.5,"low52":228.45},{"company":"Oil India Limited","sector":"Oil Gas & Consumable Fuels","ticker":"OIL","yf":"OIL.NS","lotSize":1400,"faceValue":10.0,"de":0.582,"cr":null,"roce":null,"eps":35.8401,"pe":12.95,"indPE":12.95,"bvps":345.6966,"pb":1.4197,"dps":11.4997,"divYield":2.3333,"mcap":79842.04,"cmp":490.8,"rs":null,"high52":524.0,"low52":384.6},{"company":"One 97 Communications Limited","sector":"Financial Services","ticker":"PAYTM","yf":"PAYTM.NS","lotSize":725,"faceValue":1.0,"de":0.01,"cr":null,"roce":null,"eps":null,"pe":0.0,"indPE":141.47,"bvps":241.0571,"pb":4.5533,"dps":null,"divYield":null,"mcap":70258.44,"cmp":1097.6,"rs":null,"high52":1381.8,"low52":808.0},{"company":"Oracle Financial Services Software Limited","sector":"Information Technology","ticker":"OFSS","yf":"OFSS.NS","lotSize":75,"faceValue":5.0,"de":0.004,"cr":5.435,"roce":40.1,"eps":303.4032,"pe":31.95,"indPE":31.95,"bvps":899.3455,"pb":10.8635,"dps":414.6464,"divYield":4.28,"mcap":85021.8,"cmp":9770.0,"rs":"7783.0","high52":9950.0,"low52":6234.5},{"company":"Page Industries Limited","sector":"Textiles","ticker":"PAGEIND","yf":"PAGEIND.NS","lotSize":15,"faceValue":10.0,"de":0.19,"cr":null,"roce":null,"eps":671.6098,"pe":54.86,"indPE":53.04,"bvps":1263.3629,"pb":29.0415,"dps":899.976,"divYield":2.4426,"mcap":40923.56,"cmp":36690.0,"rs":null,"high52":50590.0,"low52":29805.0},{"company":"Patanjali Foods Limited","sector":"Fast Moving Consumer Goods","ticker":"PATANJALI","yf":"PATANJALI.NS","lotSize":900,"faceValue":2.0,"de":0.239,"cr":null,"roce":null,"eps":15.1603,"pe":30.77,"indPE":30.42,"bvps":111.3482,"pb":4.1042,"dps":4.1697,"divYield":0.8942,"mcap":49715.48,"cmp":457.0,"rs":null,"high52":653.93,"low52":450.6},{"company":"PB Fintech Limited","sector":"Financial Services","ticker":"POLICYBZR","yf":"POLICYBZR.NS","lotSize":350,"faceValue":2.0,"de":0.049,"cr":null,"roce":null,"eps":12.5168,"pe":135.52,"indPE":135.52,"bvps":147.5664,"pb":11.2844,"dps":null,"divYield":null,"mcap":77047.65,"cmp":1665.2,"rs":null,"high52":1978.0,"low52":1364.0},{"company":"Persistent Systems Limited","sector":"Information Technology","ticker":"PERSISTENT","yf":"PERSISTENT.NS","lotSize":100,"faceValue":5.0,"de":0.061,"cr":2.427,"roce":28.3,"eps":118.87,"pe":40.65,"indPE":39.24,"bvps":500.9913,"pb":9.583,"dps":40.0179,"divYield":0.8327,"mcap":75735.78,"cmp":4801.0,"rs":"7758.98","high52":6599.0,"low52":4449.1},{"company":"Petronet LNG Limited","sector":"Oil Gas & Consumable Fuels","ticker":"PETRONET","yf":"PETRONET.NS","lotSize":1900,"faceValue":10.0,"de":0.119,"cr":null,"roce":null,"eps":24.2406,"pe":11.87,"indPE":11.87,"bvps":140.7833,"pb":1.9587,"dps":9.9997,"divYield":3.5698,"mcap":41349.0,"cmp":275.75,"rs":null,"high52":326.5,"low52":235.35},{"company":"PG Electroplast Limited","sector":"Consumer Durables","ticker":"PGEL","yf":"PGEL.NS","lotSize":950,"faceValue":1.0,"de":0.203,"cr":null,"roce":null,"eps":9.6952,"pe":56.98,"indPE":56.98,"bvps":94.6418,"pb":5.5171,"dps":0.2434,"divYield":0.0442,"mcap":14909.15,"cmp":522.15,"rs":null,"high52":906.3,"low52":436.55},{"company":"PI Industries Limited","sector":"Chemicals","ticker":"PIIND","yf":"PIIND.NS","lotSize":175,"faceValue":1.0,"de":0.022,"cr":null,"roce":null,"eps":95.6709,"pe":32.47,"indPE":34.53,"bvps":713.6813,"pb":4.2668,"dps":14.9331,"divYield":0.4831,"mcap":46199.68,"cmp":3045.1,"rs":null,"high52":4330.0,"low52":2700.0},{"company":"Pidilite Industries Limited","sector":"Chemicals","ticker":"PIDILITIND","yf":"PIDILITIND.NS","lotSize":500,"faceValue":1.0,"de":0.045,"cr":null,"roce":null,"eps":22.4758,"pe":61.06,"indPE":60.46,"bvps":93.8477,"pb":14.6013,"dps":9.973,"divYield":0.718,"mcap":139465.76,"cmp":1370.3,"rs":null,"high52":1574.95,"low52":1259.0},{"company":"PNB Housing Finance Limited","sector":"Financial Services","ticker":"PNBHOUSING","yf":"PNBHOUSING.NS","lotSize":650,"faceValue":10.0,"de":2.774,"cr":4.982,"roce":null,"eps":87.8,"pe":11.97,"indPE":11.97,"bvps":737.6418,"pb":1.401,"dps":7.999,"divYield":0.7596,"mcap":26933.01,"cmp":1033.45,"rs":"18958.58","high52":1141.9,"low52":729.6},{"company":"Polycab India Limited","sector":"Capital Goods","ticker":"POLYCAB","yf":"POLYCAB.NS","lotSize":125,"faceValue":10.0,"de":0.021,"cr":1.86,"roce":30.0,"eps":173.8939,"pe":46.17,"indPE":46.17,"bvps":745.3539,"pb":10.7741,"dps":34.5496,"divYield":0.424,"mcap":120919.97,"cmp":8030.5,"rs":"94.207","high52":8722.0,"low52":5445.5},{"company":"Power Finance Corporation Limited","sector":"Financial Services","ticker":"PFC","yf":"PFC.NS","lotSize":1300,"faceValue":10.0,"de":6.033,"cr":null,"roce":null,"eps":76.4165,"pe":4.59,"indPE":4.59,"bvps":384.7939,"pb":1.167,"dps":15.7996,"divYield":3.3996,"mcap":148191.07,"cmp":449.05,"rs":null,"high52":486.5,"low52":329.9},{"company":"Power Grid Corporation of India Limited","sector":"Power","ticker":"POWERGRID","yf":"POWERGRID.NS","lotSize":1900,"faceValue":10.0,"de":1.412,"cr":null,"roce":null,"eps":16.6988,"pe":18.97,"indPE":18.97,"bvps":106.5309,"pb":2.9747,"dps":8.9999,"divYield":2.8094,"mcap":294643.13,"cmp":316.9,"rs":null,"high52":324.95,"low52":250.0},{"company":"Premier Energies Limited","sector":"Capital Goods","ticker":"PREMIERENE","yf":"PREMIERENE.NS","lotSize":575,"faceValue":1.0,"de":0.47,"cr":null,"roce":null,"eps":27.6191,"pe":35.37,"indPE":35.37,"bvps":77.1068,"pb":12.9989,"dps":0.4998,"divYield":0.0481,"mcap":45403.63,"cmp":1002.3,"rs":null,"high52":1163.9,"low52":660.0},{"company":"Prestige Estates Projects Limited","sector":"Realty","ticker":"PRESTIGE","yf":"PRESTIGE.NS","lotSize":450,"faceValue":10.0,"de":0.893,"cr":null,"roce":null,"eps":22.5325,"pe":58.77,"indPE":58.77,"bvps":367.4523,"pb":3.8318,"dps":1.8394,"divYield":0.1283,"mcap":60633.89,"cmp":1408.0,"rs":null,"high52":1814.0,"low52":1090.0},{"company":"Punjab National Bank","sector":"Financial Services","ticker":"PNB","yf":"PNB.NS","lotSize":8000,"faceValue":2.0,"de":0.767,"cr":null,"roce":null,"eps":15.4807,"pe":7.74,"indPE":7.74,"bvps":129.5798,"pb":0.8416,"dps":2.8999,"divYield":2.6083,"mcap":125342.04,"cmp":109.05,"rs":null,"high52":135.15,"low52":89.45},{"company":"Rail Vikas Nigam Limited","sector":"Construction","ticker":"RVNL","yf":"RVNL.NS","lotSize":1525,"faceValue":10.0,"de":0.521,"cr":null,"roce":null,"eps":5.5064,"pe":62.66,"indPE":62.66,"bvps":45.6546,"pb":6.4789,"dps":1.7198,"divYield":0.5689,"mcap":61683.23,"cmp":295.79,"rs":null,"high52":447.8,"low52":248.0},{"company":"RBL Bank Limited","sector":"Financial Services","ticker":"RBLBANK","yf":"RBLBANK.NS","lotSize":3175,"faceValue":10.0,"de":1.004,"cr":null,"roce":null,"eps":14.09,"pe":24.0,"indPE":24.0,"bvps":270.9598,"pb":1.2397,"dps":0.9997,"divYield":0.293,"mcap":20736.21,"cmp":335.9,"rs":null,"high52":345.65,"low52":188.1},{"company":"REC Limited","sector":"Financial Services","ticker":"RECLTD","yf":"RECLTD.NS","lotSize":1400,"faceValue":10.0,"de":6.075,"cr":282.504,"roce":null,"eps":61.81,"pe":5.87,"indPE":5.86,"bvps":319.797,"pb":1.1116,"dps":14.8496,"divYield":4.0846,"mcap":93545.28,"cmp":355.5,"rs":"82421.19","high52":441.3,"low52":304.05},{"company":"Reliance Industries Limited","sector":"Oil Gas & Consumable Fuels","ticker":"RELIANCE","yf":"RELIANCE.NS","lotSize":500,"faceValue":10.0,"de":0.367,"cr":1.098,"roce":7.4,"eps":59.69,"pe":20.17,"indPE":20.17,"bvps":667.9946,"pb":2.128,"dps":6.1563,"divYield":0.4319,"mcap":1923244.4,"cmp":1421.5,"rs":"890498.0","high52":1611.8,"low52":1290.0},{"company":"Sammaan Capital Limited","sector":"Financial Services","ticker":"SAMMAANCAP","yf":"SAMMAANCAP.NS","lotSize":4300,"faceValue":2.0,"de":2.035,"cr":null,"roce":null,"eps":15.8675,"pe":12.76,"indPE":12.76,"bvps":275.0176,"pb":0.5239,"dps":1.9682,"divYield":1.395,"mcap":16679.06,"cmp":144.08,"rs":null,"high52":192.95,"low52":110.58},{"company":"Samvardhana Motherson International Limited","sector":"Automobile and Auto Components","ticker":"MOTHERSON","yf":"MOTHERSON.NS","lotSize":6150,"faceValue":1.0,"de":0.499,"cr":null,"roce":null,"eps":3.2348,"pe":42.0,"indPE":40.49,"bvps":35.0221,"pb":3.4364,"dps":0.3362,"divYield":0.2728,"mcap":127033.27,"cmp":120.35,"rs":null,"high52":136.15,"low52":87.08},{"company":"SBI Cards and Payment Services Limited","sector":"Financial Services","ticker":"SBICARD","yf":"SBICARD.NS","lotSize":800,"faceValue":10.0,"de":2.802,"cr":19.959,"roce":null,"eps":22.77,"pe":28.6,"indPE":28.6,"bvps":165.1784,"pb":3.8885,"dps":2.5,"divYield":0.3839,"mcap":61140.32,"cmp":642.3,"rs":"14773.9","high52":1027.25,"low52":615.5},{"company":"SBI Life Insurance Company Limited","sector":"Financial Services","ticker":"SBILIFE","yf":"SBILIFE.NS","lotSize":375,"faceValue":10.0,"de":null,"cr":1.55,"roce":null,"eps":24.62,"pe":73.75,"indPE":73.75,"bvps":190.2338,"pb":9.4605,"dps":2.6989,"divYield":0.1486,"mcap":180526.49,"cmp":1799.7,"rs":"18082.91","high52":2132.0,"low52":1693.1},{"company":"SHREE CEMENT LIMITED","sector":"Construction Materials","ticker":"SHREECEM","yf":"SHREECEM.NS","lotSize":25,"faceValue":10.0,"de":0.095,"cr":null,"roce":null,"eps":496.7072,"pe":49.33,"indPE":49.33,"bvps":6219.5896,"pb":3.8805,"dps":138.0973,"divYield":0.5624,"mcap":87080.89,"cmp":24135.0,"rs":null,"high52":32490.0,"low52":22550.0},{"company":"Shriram Finance Limited","sector":"Financial Services","ticker":"SHRIRAMFIN","yf":"SHRIRAMFIN.NS","lotSize":825,"faceValue":2.0,"de":2.75,"cr":4.208,"roce":null,"eps":42.6073,"pe":22.5,"indPE":22.5,"bvps":350.437,"pb":2.6678,"dps":10.8507,"divYield":1.134,"mcap":219929.13,"cmp":934.9,"rs":"65542.28","high52":1108.0,"low52":566.5},{"company":"Siemens Limited","sector":"Capital Goods","ticker":"SIEMENS","yf":"SIEMENS.NS","lotSize":175,"faceValue":2.0,"de":null,"cr":null,"roce":null,"eps":47.4234,"pe":79.64,"indPE":79.64,"bvps":null,"pb":null,"dps":11.8403,"divYield":0.3135,"mcap":135778.06,"cmp":3810.0,"rs":null,"high52":3901.0,"low52":2788.3},{"company":"Solar Industries India Limited","sector":"Chemicals","ticker":"SOLARINDS","yf":"SOLARINDS.NS","lotSize":50,"faceValue":2.0,"de":0.164,"cr":null,"roce":null,"eps":160.4732,"pe":90.97,"indPE":90.93,"bvps":565.3213,"pb":27.3473,"dps":10.0412,"divYield":0.0653,"mcap":139933.82,"cmp":15460.0,"rs":null,"high52":17820.0,"low52":11646.0},{"company":"Sona BLW Precision Forgings Limited","sector":"Automobile and Auto Components","ticker":"SONACOMS","yf":"SONACOMS.NS","lotSize":1225,"faceValue":10.0,"de":0.036,"cr":null,"roce":null,"eps":9.8544,"pe":61.54,"indPE":57.66,"bvps":91.9185,"pb":6.5128,"dps":3.2048,"divYield":0.5344,"mcap":37270.39,"cmp":598.65,"rs":null,"high52":611.4,"low52":402.3},{"company":"SRF Limited","sector":"Chemicals","ticker":"SRF","yf":"SRF.NS","lotSize":200,"faceValue":10.0,"de":0.347,"cr":null,"roce":null,"eps":60.0321,"pe":42.38,"indPE":41.13,"bvps":447.6104,"pb":5.5984,"dps":8.9993,"divYield":0.3538,"mcap":74281.1,"cmp":2505.9,"rs":null,"high52":3325.0,"low52":2355.0},{"company":"State Bank of India","sector":"Financial Services","ticker":"SBIN","yf":"SBIN.NS","lotSize":750,"faceValue":1.0,"de":1.121,"cr":null,"roce":null,"eps":91.8771,"pe":11.81,"indPE":12.13,"bvps":641.3611,"pb":1.6651,"dps":15.835,"divYield":1.4569,"mcap":985829.96,"cmp":1067.95,"rs":null,"high52":1234.7,"low52":755.5},{"company":"Steel Authority of India Limited","sector":"Metals & Mining","ticker":"SAIL","yf":"SAIL.NS","lotSize":4700,"faceValue":10.0,"de":0.578,"cr":null,"roce":null,"eps":6.7545,"pe":31.39,"indPE":28.86,"bvps":140.5727,"pb":1.3058,"dps":1.6045,"divYield":0.8619,"mcap":75840.57,"cmp":183.56,"rs":null,"high52":189.1,"low52":106.25},{"company":"Sun Pharmaceutical Industries Limited","sector":"Healthcare","ticker":"SUNPHARMA","yf":"SUNPHARMA.NS","lotSize":350,"faceValue":1.0,"de":0.067,"cr":null,"roce":null,"eps":45.4531,"pe":38.79,"indPE":34.9,"bvps":324.462,"pb":5.548,"dps":16.2858,"divYield":0.9156,"mcap":431904.29,"cmp":1800.1,"rs":null,"high52":1851.2,"low52":1548.0},{"company":"Supreme Industries Limited","sector":"Capital Goods","ticker":"SUPREMEIND","yf":"SUPREMEIND.NS","lotSize":175,"faceValue":2.0,"de":0.015,"cr":2.2,"roce":17.6,"eps":75.1,"pe":54.63,"indPE":54.63,"bvps":485.6202,"pb":7.4439,"dps":36.3503,"divYield":0.9912,"mcap":45936.73,"cmp":3614.9,"rs":"6143.66","high52":4739.0,"low52":3182.0},{"company":"Suzlon Energy Limited","sector":"Capital Goods","ticker":"SUZLON","yf":"SUZLON.NS","lotSize":9025,"faceValue":2.0,"de":0.051,"cr":null,"roce":null,"eps":2.3596,"pe":24.12,"indPE":24.12,"bvps":5.7133,"pb":9.6844,"dps":null,"divYield":null,"mcap":75900.42,"cmp":55.33,"rs":null,"high52":74.3,"low52":38.19},{"company":"Swiggy Limited","sector":"Consumer Services","ticker":"SWIGGY","yf":"SWIGGY.NS","lotSize":1300,"faceValue":1.0,"de":0.254,"cr":null,"roce":null,"eps":null,"pe":null,"indPE":null,"bvps":42.1916,"pb":6.3295,"dps":null,"divYield":null,"mcap":73755.58,"cmp":267.05,"rs":null,"high52":474.0,"low52":256.7},{"company":"Tata Consultancy Services Limited","sector":"Information Technology","ticker":"TCS","yf":"TCS.NS","lotSize":175,"faceValue":1.0,"de":0.104,"cr":2.228,"roce":55.0,"eps":136.01,"pe":18.11,"indPE":16.93,"bvps":296.2431,"pb":8.3394,"dps":111.3491,"divYield":4.4995,"mcap":893703.8,"cmp":2470.5,"rs":"106878.0","high52":3630.5,"low52":2346.2},{"company":"TATA CONSUMER PRODUCTS LIMITED","sector":"Fast Moving Consumer Goods","ticker":"TATACONSUM","yf":"TATACONSUM.NS","lotSize":550,"faceValue":1.0,"de":0.119,"cr":null,"roce":null,"eps":14.8268,"pe":74.41,"indPE":75.51,"bvps":205.4227,"pb":5.5602,"dps":8.3956,"divYield":0.7188,"mcap":113067.33,"cmp":1142.2,"rs":null,"high52":1220.9,"low52":1007.2},{"company":"Tata Elxsi Limited","sector":"Information Technology","ticker":"TATAELXSI","yf":"TATAELXSI.NS","lotSize":100,"faceValue":10.0,"de":0.053,"cr":3.921,"roce":23.5,"eps":100.9336,"pe":41.12,"indPE":38.07,"bvps":488.1853,"pb":8.4919,"dps":75.086,"divYield":1.81,"mcap":25820.11,"cmp":4145.6,"rs":"2979.045","high52":6735.0,"low52":3966.2},{"company":"Tata Motors Passenger Vehicles Limited","sector":"Automobile and Auto Components","ticker":"TMPV","yf":"TMPV.NS","lotSize":800,"faceValue":2.0,"de":0.561,"cr":null,"roce":null,"eps":231.2666,"pe":57.6,"indPE":17.29,"bvps":300.6601,"pb":1.1272,"dps":5.9994,"divYield":1.701,"mcap":124750.91,"cmp":338.9,"rs":null,"high52":744.0,"low52":294.3},{"company":"Tata Power Company Limited","sector":"Power","ticker":"TATAPOWER","yf":"TATAPOWER.NS","lotSize":1450,"faceValue":1.0,"de":1.562,"cr":null,"roce":null,"eps":11.866,"pe":32.29,"indPE":32.4,"bvps":118.4807,"pb":3.7327,"dps":2.2376,"divYield":0.4956,"mcap":141281.94,"cmp":442.25,"rs":null,"high52":464.9,"low52":342.5},{"company":"Tata Steel Limited","sector":"Metals & Mining","ticker":"TATASTEEL","yf":"TATASTEEL.NS","lotSize":2750,"faceValue":1.0,"de":0.997,"cr":null,"roce":null,"eps":7.3441,"pe":30.59,"indPE":28.58,"bvps":76.2211,"pb":2.7567,"dps":3.6052,"divYield":1.67,"mcap":262528.58,"cmp":210.12,"rs":null,"high52":218.24,"low52":138.0},{"company":"Tech Mahindra Limited","sector":"Information Technology","ticker":"TECHM","yf":"TECHM.NS","lotSize":600,"faceValue":5.0,"de":0.073,"cr":1.902,"roce":20.5,"eps":54.19,"pe":29.77,"indPE":28.66,"bvps":334.0428,"pb":4.3973,"dps":52.8725,"divYield":3.6219,"mcap":143928.88,"cmp":1468.9,"rs":"29172.6","high52":1854.0,"low52":1304.1},{"company":"The Federal Bank  Limited","sector":"Financial Services","ticker":"FEDERALBNK","yf":"FEDERALBNK.NS","lotSize":2500,"faceValue":2.0,"de":0.723,"cr":null,"roce":null,"eps":16.4992,"pe":15.66,"indPE":15.66,"bvps":147.7052,"pb":1.9251,"dps":1.1757,"divYield":0.4129,"mcap":70121.62,"cmp":284.35,"rs":null,"high52":302.0,"low52":183.15},{"company":"The Indian Hotels Company Limited","sector":"Consumer Services","ticker":"INDHOTEL","yf":"INDHOTEL.NS","lotSize":1000,"faceValue":1.0,"de":0.25,"cr":null,"roce":null,"eps":14.1072,"pe":43.49,"indPE":48.22,"bvps":81.2802,"pb":7.7848,"dps":2.2176,"divYield":0.344,"mcap":90017.85,"cmp":632.75,"rs":null,"high52":821.65,"low52":565.0},{"company":"The Phoenix Mills Limited","sector":"Realty","ticker":"PHOENIXLTD","yf":"PHOENIXLTD.NS","lotSize":350,"faceValue":2.0,"de":0.372,"cr":0.87,"roce":null,"eps":34.095,"pe":41.13,"indPE":40.52,"bvps":307.3067,"pb":5.733,"dps":2.5064,"divYield":0.14,"mcap":63029.34,"cmp":1761.8,"rs":null,"high52":1993.0,"low52":1402.5},{"company":"Titan Company Limited","sector":"Consumer Durables","ticker":"TITAN","yf":"TITAN.NS","lotSize":175,"faceValue":1.0,"de":2.23,"cr":null,"roce":null,"eps":53.7125,"pe":82.72,"indPE":80.79,"bvps":144.3767,"pb":30.3671,"dps":11.0507,"divYield":0.2489,"mcap":389232.09,"cmp":4384.3,"rs":null,"high52":4554.0,"low52":3245.5},{"company":"Torrent Pharmaceuticals Limited","sector":"Healthcare","ticker":"TORNTPHARM","yf":"TORNTPHARM.NS","lotSize":125,"faceValue":5.0,"de":0.334,"cr":null,"roce":null,"eps":67.1601,"pe":63.03,"indPE":62.12,"bvps":249.4671,"pb":16.8114,"dps":34.7406,"divYield":0.821,"mcap":141940.63,"cmp":4193.9,"rs":null,"high52":4482.9,"low52":3101.6},{"company":"Trent Limited","sector":"Consumer Services","ticker":"TRENT","yf":"TRENT.NS","lotSize":100,"faceValue":1.0,"de":0.36,"cr":1.264,"roce":27.1,"eps":48.3835,"pe":87.52,"indPE":86.54,"bvps":196.4748,"pb":21.0902,"dps":6.0,"divYield":0.1419,"mcap":147306.89,"cmp":4143.7,"rs":"6949.13","high52":6261.0,"low52":3275.5},{"company":"Tube Investments of India Limited","sector":"Automobile and Auto Components","ticker":"TIINDIA","yf":"TIINDIA.NS","lotSize":200,"faceValue":1.0,"de":0.277,"cr":null,"roce":null,"eps":30.8885,"pe":55.04,"indPE":53.12,"bvps":388.7043,"pb":7.4841,"dps":3.4573,"divYield":0.1166,"mcap":56306.47,"cmp":2909.1,"rs":null,"high52":3419.9,"low52":2164.9},{"company":"TVS Motor Company Limited","sector":"Automobile and Auto Components","ticker":"TVSMOTOR","yf":"TVSMOTOR.NS","lotSize":175,"faceValue":1.0,"de":3.461,"cr":null,"roce":null,"eps":60.9664,"pe":272.71,"indPE":269.79,"bvps":170.7891,"pb":20.239,"dps":12.0015,"divYield":0.3377,"mcap":821069.3,"cmp":3456.6,"rs":null,"high52":3970.0,"low52":2640.0},{"company":"UltraTech Cement Limited","sector":"Construction Materials","ticker":"ULTRACEMCO","yf":"ULTRACEMCO.NS","lotSize":50,"faceValue":10.0,"de":0.294,"cr":0.746,"roce":11.5,"eps":277.45,"pe":42.5,"indPE":41.94,"bvps":2743.7059,"pb":4.2187,"dps":77.6008,"divYield":0.6558,"mcap":341209.01,"cmp":11575.0,"rs":"76328.86","high52":13110.0,"low52":10325.0},{"company":"Union Bank of India","sector":"Financial Services","ticker":"UNIONBANK","yf":"UNIONBANK.NS","lotSize":4425,"faceValue":10.0,"de":0.583,"cr":null,"roce":null,"eps":25.45,"pe":6.8,"indPE":6.8,"bvps":174.8225,"pb":0.9434,"dps":4.9069,"divYield":2.9328,"mcap":125885.79,"cmp":164.92,"rs":null,"high52":205.49,"low52":114.5},{"company":"United Spirits Limited","sector":"Fast Moving Consumer Goods","ticker":"UNITDSPR","yf":"UNITDSPR.NS","lotSize":400,"faceValue":2.0,"de":0.049,"cr":null,"roce":null,"eps":24.2201,"pe":57.39,"indPE":56.12,"bvps":118.3281,"pb":11.1985,"dps":13.9994,"divYield":1.0268,"mcap":96381.26,"cmp":1325.1,"rs":null,"high52":1645.0,"low52":1210.8},{"company":"UNO Minda Limited","sector":"Automobile and Auto Components","ticker":"UNOMINDA","yf":"UNOMINDA.NS","lotSize":550,"faceValue":2.0,"de":0.431,"cr":null,"roce":null,"eps":19.7115,"pe":66.54,"indPE":65.19,"bvps":108.1786,"pb":10.2442,"dps":2.4073,"divYield":0.2127,"mcap":64000.04,"cmp":1108.2,"rs":null,"high52":1382.0,"low52":871.35},{"company":"UPL Limited","sector":"Chemicals","ticker":"UPL","yf":"UPL.NS","lotSize":1355,"faceValue":2.0,"de":0.796,"cr":null,"roce":null,"eps":19.1963,"pe":25.3,"indPE":23.14,"bvps":389.3029,"pb":1.641,"dps":5.9779,"divYield":0.9281,"mcap":53959.3,"cmp":638.85,"rs":null,"high52":812.2,"low52":565.15},{"company":"Varun Beverages Limited","sector":"Fast Moving Consumer Goods","ticker":"VBL","yf":"VBL.NS","lotSize":1125,"faceValue":2.0,"de":0.127,"cr":null,"roce":null,"eps":9.3995,"pe":54.96,"indPE":54.96,"bvps":57.8911,"pb":8.8347,"dps":1.5114,"divYield":0.2892,"mcap":172960.31,"cmp":511.45,"rs":null,"high52":543.7,"low52":381.0},{"company":"Vedanta Limited","sector":"Metals & Mining","ticker":"VEDL","yf":"VEDL.NS","lotSize":1150,"faceValue":1.0,"de":0.48,"cr":1.32,"roce":21.6,"eps":12.1386,"pe":19.07,"indPE":17.38,"bvps":127.1322,"pb":2.1836,"dps":45.5179,"divYield":5.8839,"mcap":108571.92,"cmp":277.6,"rs":"49261.0","high52":795.0,"low52":271.5},{"company":"Vishal Mega Mart Limited","sector":"Consumer Services","ticker":"VMM","yf":"VMM.NS","lotSize":4850,"faceValue":10.0,"de":0.271,"cr":null,"roce":null,"eps":1.6708,"pe":73.01,"indPE":73.01,"bvps":14.9453,"pb":8.0567,"dps":null,"divYield":null,"mcap":56270.34,"cmp":120.41,"rs":null,"high52":157.6,"low52":98.77},{"company":"Vodafone Idea Limited","sector":"Telecommunication","ticker":"IDEA","yf":"IDEA.NS","lotSize":71475,"faceValue":10.0,"de":-2.829,"cr":null,"roce":null,"eps":null,"pe":null,"indPE":null,"bvps":-7.6128,"pb":-1.3346,"dps":null,"divYield":null,"mcap":110184.87,"cmp":10.16,"rs":null,"high52":12.8,"low52":6.12},{"company":"Voltas Limited","sector":"Consumer Durables","ticker":"VOLTAS","yf":"VOLTAS.NS","lotSize":375,"faceValue":1.0,"de":0.274,"cr":null,"roce":null,"eps":15.1371,"pe":78.86,"indPE":76.43,"bvps":191.3112,"pb":7.4486,"dps":6.8313,"divYield":0.4632,"mcap":47147.77,"cmp":1425.0,"rs":null,"high52":1582.5,"low52":1186.8},{"company":"Waaree Energies Limited","sector":"Capital Goods","ticker":"WAAREEENER","yf":"WAAREEENER.NS","lotSize":175,"faceValue":10.0,"de":0.214,"cr":1.383,"roce":32.3,"eps":113.0382,"pe":25.94,"indPE":24.56,"bvps":502.1979,"pb":6.2505,"dps":null,"divYield":null,"mcap":90299.51,"cmp":3139.0,"rs":"14149.69","high52":3865.0,"low52":2403.0},{"company":"Wipro Limited","sector":"Information Technology","ticker":"WIPRO","yf":"WIPRO.NS","lotSize":3000,"faceValue":2.0,"de":0.23,"cr":2.049,"roce":14.7,"eps":12.5954,"pe":15.9,"indPE":15.9,"bvps":83.9514,"pb":2.4004,"dps":10.8126,"divYield":5.388,"mcap":211382.7,"cmp":201.52,"rs":"85920.6","high52":273.1,"low52":186.5},{"company":"Yes Bank Limited","sector":"Financial Services","ticker":"YESBANK","yf":"YESBANK.NS","lotSize":31100,"faceValue":2.0,"de":1.279,"cr":null,"roce":null,"eps":1.12,"pe":18.11,"indPE":18.11,"bvps":16.0728,"pb":1.2431,"dps":null,"divYield":null,"mcap":62697.67,"cmp":19.98,"rs":null,"high52":24.3,"low52":17.2},{"company":"Zydus Lifesciences Limited","sector":"Healthcare","ticker":"ZYDUSLIFE","yf":"ZYDUSLIFE.NS","lotSize":900,"faceValue":1.0,"de":0.343,"cr":null,"roce":null,"eps":49.0745,"pe":18.58,"indPE":17.9,"bvps":251.4922,"pb":3.5707,"dps":10.994,"divYield":1.207,"mcap":90359.81,"cmp":898.0,"rs":null,"high52":1059.05,"low52":835.5}];
+
+const liveData = {};
+let lastFetch = 0, sortCol = '#', sortAsc = true, pollTimer = null, ageTimer = null;
+let filteredRows = [];
+
+function fmt(v,dec){
+  dec = dec === undefined ? 2 : dec;
+  if(v == null || isNaN(v)) return '<span class="na">—</span>';
+  return Number(v).toLocaleString('en-IN',{minimumFractionDigits:dec,maximumFractionDigits:dec});
+}
+function fmtC(v){ return fmt(v,2); }
+function fmtI(v){
+  if(v == null || isNaN(v)) return '<span class="na">—</span>';
+  return Math.round(v).toLocaleString('en-IN');
+}
+function na(){ return '<span class="na">—</span>'; }
+
+function rangeBar(pct){
+  if(pct == null) return na();
+  var p = Math.max(0, Math.min(100, pct));
+  var col = p<20?'#ef4444':p<40?'#f97316':p<60?'#eab308':p<80?'#3b82f6':'#22c55e';
+  var lbl = p<20?'Near Low':p<40?'Low Zone':p<60?'Mid Range':p<80?'High Zone':'Near High';
+  return '<div class="rng-wrap"><div class="rng-track"><div class="rng-fill" style="width:'+p.toFixed(1)+'%;background:'+col+'"></div></div><span class="rng-pct">'+p.toFixed(0)+'% — '+lbl+'</span></div>';
+}
+
+function buildRow(s, idx){
+  var lv = liveData[s.ticker] || {};
+  var cmp   = lv.cmp   != null ? lv.cmp   : s.cmp;
+  var chg   = lv.chg   != null ? lv.chg   : null;
+  var chgP  = lv.chgPct!= null ? lv.chgPct: null;
+  var h52   = lv.high52!= null ? lv.high52 : s.high52;
+  var l52   = lv.low52 != null ? lv.low52  : s.low52;
+  var hDt   = lv.highDate || null;
+  var lDt   = lv.lowDate  || null;
+  var fromH = (cmp!=null&&h52!=null&&h52>0) ? ((cmp-h52)/h52*100) : null;
+  var fromL = (cmp!=null&&l52!=null&&l52>0) ? ((cmp-l52)/l52*100) : null;
+  var rngPct= (cmp!=null&&h52!=null&&l52!=null&&h52>l52) ? ((cmp-l52)/(h52-l52)*100) : null;
+  var totalInv = cmp != null ? cmp*(s.lotSize||1) : null;
+  var p10 = cmp != null ? cmp*0.90  : null;
+  var p75 = cmp != null ? cmp*0.925 : null;
+  var p5  = cmp != null ? cmp*0.95  : null;
+  return Object.assign({}, s, {
+    idx:idx, cmp:cmp, chg:chg, chgPct:chgP,
+    high52:h52, low52:l52, highDate:hDt, lowDate:lDt,
+    fromHigh:fromH, fromLow:fromL, rangePct:rngPct,
+    totalInv:totalInv, price10:p10, price75:p75, price5:p5
+  });
+}
+
+var sortFns = {
+  '#':       function(r){ return r.idx; },
+  company:   function(r){ return r.company; },
+  sector:    function(r){ return r.sector; },
+  ticker:    function(r){ return r.ticker; },
+  cmp:       function(r){ return r.cmp != null ? r.cmp : -Infinity; },
+  high52:    function(r){ return r.high52 != null ? r.high52 : -Infinity; },
+  fromHigh:  function(r){ return r.fromHigh != null ? r.fromHigh : Infinity; },
+  low52:     function(r){ return r.low52 != null ? r.low52 : -Infinity; },
+  fromLow:   function(r){ return r.fromLow != null ? r.fromLow : -Infinity; },
+  rangePct:  function(r){ return r.rangePct != null ? r.rangePct : -Infinity; },
+  chg:       function(r){ return r.chg != null ? r.chg : -Infinity; },
+  chgPct:    function(r){ return r.chgPct != null ? r.chgPct : -Infinity; },
+  de:        function(r){ return r.de != null ? r.de : Infinity; },
+  cr:        function(r){ return r.cr != null ? r.cr : -Infinity; },
+  roce:      function(r){ return r.roce != null ? r.roce : -Infinity; },
+  eps:       function(r){ return r.eps != null ? r.eps : -Infinity; },
+  pe:        function(r){ return r.pe != null ? r.pe : Infinity; },
+  indPE:     function(r){ return r.indPE != null ? r.indPE : Infinity; },
+  bvps:      function(r){ return r.bvps != null ? r.bvps : -Infinity; },
+  pb:        function(r){ return r.pb != null ? r.pb : Infinity; },
+  faceValue: function(r){ return r.faceValue != null ? r.faceValue : -Infinity; },
+  mcap:      function(r){ return r.mcap != null ? r.mcap : -Infinity; },
+  lotSize:   function(r){ return r.lotSize != null ? r.lotSize : -Infinity; },
+  totalInv:  function(r){ return r.totalInv != null ? r.totalInv : -Infinity; },
+  dps:       function(r){ return r.dps != null ? r.dps : -Infinity; },
+  divYield:  function(r){ return r.divYield != null ? r.divYield : -Infinity; },
+  price10:   function(r){ return r.price10 != null ? r.price10 : -Infinity; },
+  price75:   function(r){ return r.price75 != null ? r.price75 : -Infinity; },
+  price5:    function(r){ return r.price5 != null ? r.price5 : -Infinity; },
+  rs:        function(r){ return r.rs || ''; }
+};
+
+function sortBy(col){
+  if(sortCol === col) sortAsc = !sortAsc; else { sortCol = col; sortAsc = true; }
+  renderTable();
+}
+
+function applyFilters(){
+  var sec  = document.getElementById('secFil').value;
+  var q    = document.getElementById('searchBox').value.toLowerCase().trim();
+  var maxPE= parseFloat(document.getElementById('maxPE').value) || Infinity;
+  var minM = parseFloat(document.getElementById('minMcap').value) || 0;
+  var chgF = document.getElementById('chgFil').value;
+  var wkF  = document.getElementById('wkFil').value;
+
+  var rows = STATIC.map(function(s,i){ return buildRow(s, i+1); });
+  if(sec !== 'All') rows = rows.filter(function(r){ return r.sector === sec; });
+  if(q) rows = rows.filter(function(r){ return r.company.toLowerCase().indexOf(q)>=0 || r.ticker.toLowerCase().indexOf(q)>=0; });
+  if(maxPE < Infinity) rows = rows.filter(function(r){ return r.pe != null && r.pe <= maxPE; });
+  if(minM > 0) rows = rows.filter(function(r){ return r.mcap != null && r.mcap >= minM; });
+  if(chgF === 'g') rows = rows.filter(function(r){ return r.chg != null && r.chg > 0; });
+  if(chgF === 'l') rows = rows.filter(function(r){ return r.chg != null && r.chg < 0; });
+  if(wkF === 'nh') rows = rows.filter(function(r){ return r.rangePct != null && r.rangePct > 80; });
+  if(wkF === 'nl') rows = rows.filter(function(r){ return r.rangePct != null && r.rangePct < 20; });
+  filteredRows = rows;
+  renderTable();
+}
+
+function renderTable(){
+  var fn = sortFns[sortCol] || function(r){ return r.idx; };
+  var rows = filteredRows.slice().sort(function(a,b){
+    var av = fn(a), bv = fn(b);
+    if(typeof av === 'string') return sortAsc ? av.localeCompare(bv) : bv.localeCompare(av);
+    return sortAsc ? av - bv : bv - av;
+  });
+
+  document.querySelectorAll('.col-row th').forEach(function(th){
+    th.classList.remove('act');
+    var sp = th.querySelector('.si');
+    if(sp) sp.innerHTML = '&#x25B4;';
+    if(th.getAttribute('onclick') === "sortBy('" + sortCol + "')"){
+      th.classList.add('act');
+      if(sp) sp.innerHTML = sortAsc ? '&#x25B4;' : '&#x25BE;';
+    }
+  });
+
+  var sq = document.getElementById('searchBox').value.trim();
+  function hl(v){
+    if(!sq) return v;
+    return String(v).replace(new RegExp(sq,'gi'), function(m){ return '<mark>'+m+'</mark>'; });
+  }
+
+  function pctCell(val, posGood){
+    if(val == null) return na();
+    var cls = '';
+    if(posGood){ cls = val > 0 ? 'pos' : val < 0 ? 'neg' : ''; }
+    else { cls = val < 0 ? 'pos' : val > 0 ? 'neg' : ''; }
+    return '<span class="'+cls+'">'+(val>0?'+':'')+val.toFixed(2)+'%</span>';
+  }
+
+  var html = '';
+  rows.forEach(function(r, i){
+    var chgCls = r.chg == null ? '' : (r.chg > 0 ? 'pos' : 'neg');
+    var chgArr = r.chg == null ? '' : (r.chg > 0 ? '▲' : '▼');
+    html += '<tr id="tr_' + r.ticker + '">';
+    html += '<td class="s0">' + (i+1) + '</td>';
+    html += '<td class="s1" title="' + r.company + '">' + hl(r.company) + '</td>';
+    html += '<td class="s2"><span class="sec">' + r.sector + '</span></td>';
+    html += '<td class="s3"><a href="https://www.nseindia.com/get-quotes/equity?symbol=' + r.ticker + '" target="_blank" style="color:var(--navy);text-decoration:none">' + r.ticker + '</a></td>';
+    html += '<td id="cmp_' + r.ticker + '" style="font-weight:700">' + fmtC(r.cmp) + '</td>';
+    html += '<td class="hi52">' + fmtC(r.high52) + '</td>';
+    html += '<td>' + pctCell(r.fromHigh, false) + '</td>';
+    html += '<td style="font-size:10px;color:#888">' + (r.highDate || na()) + '</td>';
+    html += '<td class="lo52">' + fmtC(r.low52) + '</td>';
+    html += '<td>' + pctCell(r.fromLow, true) + '</td>';
+    html += '<td style="font-size:10px;color:#888">' + (r.lowDate || na()) + '</td>';
+    html += '<td>' + rangeBar(r.rangePct) + '</td>';
+    html += '<td class="' + chgCls + '">' + (r.chg != null ? chgArr+' '+Math.abs(r.chg).toFixed(2) : na()) + '</td>';
+    html += '<td class="' + chgCls + '">' + (r.chgPct != null ? chgArr+' '+Math.abs(r.chgPct).toFixed(2)+'%' : na()) + '</td>';
+    html += '<td>' + fmtC(r.de) + '</td>';
+    html += '<td>' + fmtC(r.cr) + '</td>';
+    html += '<td>' + (r.roce != null ? r.roce.toFixed(1)+'%' : na()) + '</td>';
+    html += '<td>' + fmtC(r.eps) + '</td>';
+    html += '<td>' + (r.pe != null ? r.pe.toFixed(1) : na()) + '</td>';
+    html += '<td>' + (r.indPE != null ? r.indPE.toFixed(1) : na()) + '</td>';
+    html += '<td>' + fmtC(r.bvps) + '</td>';
+    html += '<td>' + (r.pb != null ? r.pb.toFixed(2)+'x' : na()) + '</td>';
+    html += '<td>' + (r.faceValue != null ? r.faceValue : na()) + '</td>';
+    html += '<td>' + fmtI(r.mcap) + '</td>';
+    html += '<td>' + (r.lotSize ? Number(r.lotSize).toLocaleString('en-IN') : na()) + '</td>';
+    html += '<td>' + fmtI(r.totalInv) + '</td>';
+    html += '<td>' + fmtC(r.dps) + '</td>';
+    html += '<td>' + (r.divYield != null ? r.divYield.toFixed(3)+'%' : na()) + '</td>';
+    html += '<td class="buy">' + fmtC(r.price10) + '</td>';
+    html += '<td class="buy">' + fmtC(r.price75) + '</td>';
+    html += '<td class="buy">' + fmtC(r.price5) + '</td>';
+    html += '<td style="font-size:10.5px">' + (r.rs || na()) + '</td>';
+    html += '</tr>';
+  });
+
+  document.getElementById('tbody').innerHTML = html || '<tr><td colspan="33" class="no-data">No stocks match the current filters</td></tr>';
+
+  var g   = rows.filter(function(r){ return r.chg != null && r.chg > 0; }).length;
+  var l   = rows.filter(function(r){ return r.chg != null && r.chg < 0; }).length;
+  var fl  = rows.filter(function(r){ return r.chg != null && r.chg === 0; }).length;
+  var pes = rows.filter(function(r){ return r.pe != null && r.pe > 0 && r.pe < 500; }).map(function(r){ return r.pe; });
+  var avgPE = pes.length ? (pes.reduce(function(a,b){ return a+b; },0)/pes.length) : null;
+  var nh  = rows.filter(function(r){ return r.rangePct != null && r.rangePct > 80; }).length;
+  var nl  = rows.filter(function(r){ return r.rangePct != null && r.rangePct < 20; }).length;
+
+  document.getElementById('sTotal').textContent  = rows.length;
+  document.getElementById('sG').textContent      = g;
+  document.getElementById('sL').textContent      = l;
+  document.getElementById('sF').textContent      = fl;
+  document.getElementById('sAvgPE').textContent  = avgPE ? avgPE.toFixed(1) : '—';
+  document.getElementById('sNH').textContent     = nh;
+  document.getElementById('sNL').textContent     = nl;
+  document.getElementById('sLoaded').textContent = Object.keys(liveData).length + '/209';
+  document.getElementById('stockCount').textContent = 'Showing ' + rows.length + ' of ' + STATIC.length + ' stocks';
+}
+
+var YF_URL = 'https://query1.finance.yahoo.com/v7/finance/quote?symbols=' +
+  encodeURIComponent(STATIC.map(function(s){ return s.yf; }).join(','));
+
+var PROXIES = [
+  function(u){ return u; },  // direct (works in some browsers/networks)
+  function(u){ return 'https://corsproxy.io/?' + encodeURIComponent(u); },
+  function(u){ return 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u); },
+  function(u){ return 'https://thingproxy.freeboard.io/fetch/' + u; }
+];
+var proxyIdx = 0;
+
+function processQuotes(quotes){
+  if(!quotes || !quotes.length) throw new Error('No quotes');
+  quotes.forEach(function(q){
+    var sym = q.symbol.replace('.NS','');
+    var cmp = q.regularMarketPrice;
+    var prev = liveData[sym] && liveData[sym].cmp;
+    liveData[sym] = {
+      cmp: cmp,
+      chg: q.regularMarketChange,
+      chgPct: q.regularMarketChangePercent,
+      high52: q.fiftyTwoWeekHigh,
+      low52: q.fiftyTwoWeekLow,
+      highDate: q.fiftyTwoWeekHighDate,
+      lowDate: q.fiftyTwoWeekLowDate
+    };
+    if(prev != null && cmp != null && prev !== cmp){
+      var el = document.getElementById('cmp_'+sym);
+      if(el){ el.classList.remove('fga','fra'); void el.offsetWidth; el.classList.add(cmp>prev?'fga':'fra'); }
+    }
+  });
+  lastFetch = Date.now();
+  updateStatus('Live ✓', true);
+  applyFilters();
+}
+
+function fetchYF(){
+  updateStatus('Updating…', false);
+  tryProxy(0);
+}
+
+function tryProxy(idx){
+  if(idx >= PROXIES.length){ updateStatus('Offline – using static data', false); return; }
+  var url = PROXIES[idx](YF_URL);
+  fetch(url, {headers: idx === 0 ? {} : {}})
+    .then(function(r){
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      return r.json();
+    })
+    .then(function(data){
+      // allorigins wraps in {contents:'...'}
+      if(data && data.contents) data = JSON.parse(data.contents);
+      var quotes = (data && data.quoteResponse && data.quoteResponse.result) || [];
+      if(!quotes.length) throw new Error('empty');
+      proxyIdx = idx;
+      processQuotes(quotes);
+    })
+    .catch(function(e){
+      console.warn('Proxy '+idx+' failed:', e.message);
+      tryProxy(idx + 1);
+    });
+}
+
+function updateStatus(label, ok){
+  document.getElementById('liveDot').className = 'live-dot' + (ok ? '' : ' off');
+  var badge = document.getElementById('wsBadge');
+  badge.className = 'wbadge ' + (ok ? 'poll' : '');
+  badge.textContent = label;
+  if(ok) document.getElementById('lstUpd').textContent = 'Updated: ' + new Date().toLocaleTimeString('en-IN');
+}
+
+function forceRefresh(){
+  clearInterval(pollTimer);
+  fetchYF();
+  pollTimer = setInterval(fetchYF, 15000);
+}
+
+function startAgeTimer(){
+  ageTimer = setInterval(function(){
+    if(!lastFetch){ return; }
+    var sec = Math.floor((Date.now()-lastFetch)/1000);
+    var el = document.getElementById('cdBadge');
+    el.textContent = sec < 60 ? sec+'s ago' : Math.floor(sec/60)+'m '+(sec%60)+'s ago';
+    el.style.background = sec<30?'rgba(34,197,94,.2)':sec<60?'rgba(251,191,36,.2)':'rgba(239,68,68,.2)';
+  }, 1000);
+}
+
+function exportXL(){
+  var rows = [['#','Company','Sector','Ticker','CMP','52W High','% from High','52W Low','% from Low','Range %','Chg Rs','Chg %','D/E','CR','ROCE %','EPS','P/E','Ind PE','BVPS','P/B','FV','MCap Cr','Lot Size','Total Inv','DPS','Div Yield %','@10% off','@7.5% off','@5% off','Reserve & Surplus']];
+  filteredRows.forEach(function(r,i){
+    rows.push([
+      i+1, r.company, r.sector, r.ticker, r.cmp,
+      r.high52, r.fromHigh != null ? r.fromHigh.toFixed(2)+'%' : null,
+      r.low52, r.fromLow != null ? r.fromLow.toFixed(2)+'%' : null,
+      r.rangePct != null ? r.rangePct.toFixed(1)+'%' : null,
+      r.chg, r.chgPct != null ? r.chgPct.toFixed(2)+'%' : null,
+      r.de, r.cr, r.roce, r.eps, r.pe, r.indPE, r.bvps, r.pb, r.faceValue,
+      r.mcap, r.lotSize, r.totalInv, r.dps, r.divYield,
+      r.price10, r.price75, r.price5, r.rs
+    ]);
+  });
+  var wb = XLSX.utils.book_new();
+  var ws = XLSX.utils.aoa_to_sheet(rows);
+  XLSX.utils.book_append_sheet(wb, ws, 'NSE FnO Dashboard');
+  XLSX.writeFile(wb, 'NSE_FnO_Dashboard_' + new Date().toISOString().slice(0,10) + '.xlsx');
+}
+
+document.addEventListener('DOMContentLoaded', function(){
+  applyFilters();
+  fetchYF();
+  pollTimer = setInterval(fetchYF, 15000);
+  startAgeTimer();
+});
+</script>
+</body>
+</html>
