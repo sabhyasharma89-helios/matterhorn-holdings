@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>NSE F&amp;O Options Dashboard — Live</title>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css" rel="stylesheet">
+<style>
+:root{
+  --navy:#1a237e;--navy2:#283593;--accent:#3949ab;--indigo:#5c6bc0;
+  --green:#15803d;--green-lt:#dcfce7;--red:#dc2626;--red-lt:#fee2e2;
+  --amber:#d97706;--purple:#7c3aed;--teal:#0e7490;
+  --col52h:#14532d; --col52l:#7f1d1d; --colRange:#1e3a5f;
+  --row-alt:#f5f7ff;--border:#d0d4f5;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,Helvetica,sans-serif;font-size:12px;background:#eef0ff;color:#1e1e2e}
+
+/* HEADER */
+#hdr{background:linear-gradient(135deg,#0d1557,var(--navy),var(--accent));
+  color:#fff;padding:0 18px;height:50px;
+  display:flex;align-items:center;justify-content:space-between;
+  box-shadow:0 2px 12px rgba(0,0,0,.35);position:sticky;top:0;z-index:100}
+.hdr-l{display:flex;align-items:center;gap:10px}
+.live-dot{width:8px;height:8px;border-radius:50%;background:#22c55e;flex-shrink:0;
+  box-shadow:0 0 0 0 rgba(34,197,94,.6);animation:pulse 1.5s infinite}
+.live-dot.off{background:#555;animation:none;box-shadow:none}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(34,197,94,.5)}60%{box-shadow:0 0 0 7px rgba(34,197,94,0)}}
+#hdrTitle{font-size:16px;font-weight:700}
+#hdrSub{font-size:10px;opacity:.65;margin-top:1px}
+.hdr-r{display:flex;align-items:center;gap:8px}
+.wbadge{font-size:10px;padding:2px 9px;border-radius:10px;
+  border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.1);white-space:nowrap}
+.wbadge.live{background:rgba(34,197,94,.2);border-color:#22c55e;color:#bbf7d0}
+.wbadge.poll{background:rgba(251,191,36,.15);border-color:#fbbf24;color:#fef3c7}
+#lstUpd{font-size:10px;opacity:.75;white-space:nowrap}
+#cdBadge{font-size:10px;background:rgba(255,255,255,.1);padding:2px 9px;border-radius:10px;min-width:95px;text-align:center}
+.btn-h{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);
+  color:#fff;padding:4px 11px;border-radius:5px;cursor:pointer;font-size:11px;font-weight:600;white-space:nowrap}
+.btn-h:hover{background:rgba(255,255,255,.27)}
+.btn-h.amber{background:rgba(255,165,0,.25);border-color:rgba(255,165,0,.5)}
+
+/* PROGRESS */
+#pg{height:3px;background:#c7d2fe;display:none}
+#pgF{height:100%;background:linear-gradient(90deg,var(--accent),var(--purple));width:0%;transition:width .25s}
+
+/* FILTERS */
+#ctrl{background:#fff;padding:6px 16px;display:flex;align-items:center;
+  gap:9px;flex-wrap:wrap;border-bottom:2px solid var(--border);
+  box-shadow:0 1px 5px rgba(0,0,0,.05)}
+#ctrl label{font-size:10.5px;font-weight:700;color:#444;white-space:nowrap}
+.fg{display:flex;align-items:center;gap:4px}
+#ctrl select,#ctrl input{height:26px;border:1px solid #c5cae9;border-radius:4px;
+  padding:0 7px;font-size:11px;color:#333;background:#fafbff}
+#ctrl select{min-width:142px}#searchBox{width:170px}
+#stockCount{margin-left:auto;font-size:11px;font-weight:700;color:var(--navy);white-space:nowrap}
+.btn-sm{padding:3px 11px;border:none;border-radius:4px;cursor:pointer;font-size:11px;font-weight:600;white-space:nowrap}
+.btn-export{background:#14532d;color:#fff}.btn-export:hover{background:#166534}
+.btn-fund{background:var(--amber);color:#fff}.btn-fund:hover{background:#b45309}
+#fundProg{font-size:10px;color:var(--amber);font-weight:600;display:none}
+
+/* SUMMARY */
+#sum{display:flex;gap:7px;padding:6px 16px;background:#eef0ff;flex-wrap:wrap}
+.sc{background:#fff;border:1px solid var(--border);border-radius:6px;
+  padding:4px 13px;display:flex;flex-direction:column;align-items:center;
+  min-width:85px;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+.sc .v{font-size:14px;font-weight:700}.sc .l{font-size:9.5px;color:#777;margin-top:1px}
+.sc.g .v{color:var(--green)}.sc.r .v{color:var(--red)}.sc.a .v{color:var(--amber)}
+.sc.t .v{color:var(--teal)}
+
+/* TABLE */
+#tw{overflow:auto;max-height:calc(100vh - 168px);
+  margin:0 8px 6px;border:1px solid var(--border);border-radius:7px;
+  box-shadow:0 2px 10px rgba(0,0,0,.07);background:#fff}
+table{border-collapse:collapse;white-space:nowrap;width:100%;font-size:11.5px}
+
+/* HEADER ROW — two tier approach: group label row + column row */
+thead .grp-row th{
+  background:#0f172a;color:rgba(255,255,255,.6);
+  font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;
+  padding:2px 7px;text-align:center;border-right:1px solid rgba(255,255,255,.1);
+  position:sticky;top:0;z-index:14;cursor:default;user-select:none;
+}
+thead .grp-row th.g52{background:var(--colRange);color:#bae6fd}
+thead .grp-row .sc0g{background:#0f172a}
+thead .grp-row .sc1g{background:#0f172a;left:28px;z-index:22}
+thead .grp-row .sc2g{background:#0f172a;left:213px;z-index:22}
+thead .grp-row .sc3g{background:#0f172a;left:328px;z-index:22}
+
+thead .col-row th{
+  background:var(--navy);color:#fff;
+  padding:5px 7px;text-align:right;
+  position:sticky;top:21px;z-index:12;
+  cursor:pointer;user-select:none;
+  border-right:1px solid rgba(255,255,255,.1);
+  font-size:10.5px;font-weight:600;line-height:1.3;
+}
+thead .col-row th:hover{background:var(--navy2)}
+.si{margin-left:2px;opacity:.4;font-size:8.5px}
+.act .si{opacity:1;color:#ffd54f}
+
+/* 52W column overrides */
+thead .col-row th.th52h{background:var(--col52h)}
+thead .col-row th.th52h:hover{background:#166534}
+thead .col-row th.th52l{background:var(--col52l)}
+thead .col-row th.th52l:hover{background:#991b1b}
+thead .col-row th.thRng{background:var(--colRange);cursor:default!important}
+thead .col-row th.thRng:hover{background:var(--colRange)}
+thead .grp-row th.g52h{background:var(--col52h);color:#bbf7d0}
+thead .grp-row th.g52l{background:var(--col52l);color:#fecaca}
+thead .grp-row th.gBuy{background:#1b4332;color:#bbf7d0}
+
+/* Sticky columns */
+th.s0,td.s0{position:sticky;left:0;z-index:11;min-width:28px;text-align:center!important;background:inherit}
+th.s1,td.s1{position:sticky;left:28px;z-index:11;min-width:185px;text-align:left!important;background:inherit;max-width:185px}
+th.s2,td.s2{position:sticky;left:213px;z-index:11;min-width:115px;text-align:left!important;background:inherit}
+th.s3,td.s3{position:sticky;left:328px;z-index:11;min-width:82px;text-align:left!important;background:inherit}
+thead th.s0,thead th.s1,thead th.s2,thead th.s3{background:var(--navy);z-index:22}
+thead .grp-row th.s0,thead .grp-row th.s1,thead .grp-row th.s2,thead .grp-row th.s3{background:#0f172a;z-index:24;position:sticky}
+thead .grp-row th.s1{left:28px}
+thead .grp-row th.s2{left:213px}
+thead .grp-row th.s3{left:328px}
+thead .col-row th.s0,thead .col-row th.s1,thead .col-row th.s2,thead .col-row th.s3{background:var(--navy);z-index:22;position:sticky}
+thead .col-row th.s1{left:28px}
+thead .col-row th.s2{left:213px}
+thead .col-row th.s3{left:328px}
+
+tbody tr{background:#fff}
+tbody tr:nth-child(even){background:var(--row-alt)}
+tbody tr:hover{background:#dde5ff!important}
+tbody td{padding:3px 7px;border-bottom:1px solid #eef0fb;text-align:right;border-right:1px solid #f0f2fe}
+td.s0,td.s1,td.s2,td.s3{border-right:1px solid var(--border)}
+td.s1{overflow:hidden;text-overflow:ellipsis;font-weight:600}
+td.s3{font-weight:700;color:var(--navy)}
+
+/* 52W value cells */
+td.hi52{color:var(--green);font-weight:700}
+td.lo52{color:var(--red);font-weight:700}
+
+/* 52W range bar */
+.rng-wrap{min-width:90px;padding:2px 6px!important}
+.rng-track{height:6px;background:#e5e7eb;border-radius:3px;position:relative;overflow:hidden}
+.rng-fill{height:100%;border-radius:3px;position:absolute;left:0;top:0}
+.rng-pct{font-size:9.5px;color:#666;display:block;text-align:center;margin-top:2px;font-weight:600}
+
+/* Buy-target columns */
+td.buy{color:var(--green);font-weight:600}
+
+/* flash */
+@keyframes fG{0%{background:var(--green-lt)}100%{background:inherit}}
+@keyframes fR{0%{background:var(--red-lt)}100%{background:inherit}}
+.fga{animation:fG .9s ease-out}.fra{animation:fR .9s ease-out}
+.pos{color:var(--green);font-weight:600}.neg{color:var(--red);font-weight:600}
+.na{color:#ccc;font-style:italic;font-size:10px}
+.sec{background:#e8eaf6;border-radius:9px;padding:1px 6px;font-size:9.5px;color:#3949ab}
+mark{background:#fef9c3;padding:0}
+
+.spin{display:inline-block;width:11px;height:11px;border:2px solid rgba(255,255,255,.3);
+  border-top-color:#fff;border-radius:50%;animation:rot .7s linear infinite;vertical-align:middle}
+@keyframes rot{to{transform:rotate(360deg)}}
+#toast{position:fixed;bottom:16px;right:16px;background:#1e1e2e;color:#fff;
+  padding:9px 16px;border-radius:7px;font-size:12px;z-index:9999;
+  opacity:0;transition:opacity .3s;pointer-events:none}
+#toast.show{opacity:1}
+.no-data{text-align:center!important;padding:20px!important;color:#888;font-style:italic}
+#dsBar{font-size:10px;color:#666;text-align:center;padding:3px 0;background:#fff;border-top:1px solid #eee}
+#dsBar a{color:var(--indigo)}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div id="hdr">
+  <div class="hdr-l">
+    <span class="live-dot off" id="liveDot"></span>
+    <div>
+      <div id="hdrTitle">&#x1F4CA; NSE F&amp;O Options Chain Dashboard</div>
+      <div id="hdrSub">282 options-eligible stocks &bull; 52W data loaded from reference &bull; Live prices via Yahoo Finance</div>
+    </div>
+  </div>
+  <div class="hdr-r">
+    <span class="wbadge" id="wsBadge">Connecting…</span>
+    <span id="lstUpd">—</span>
+    <span id="cdBadge">—</span>
+    <button class="btn-h" onclick="forceRefresh()"><span id="ri">&#x21BB;</span> Refresh</button>
+    <button class="btn-h amber" onclick="loadFundamentals()">&#x1F4C1; D/E &amp; CR</button>
+  </div>
+</div>
+<div id="pg"><div id="pgF"></div></div>
+
+<!-- FILTERS -->
+<div id="ctrl">
+  <div class="fg"><label>Sector</label>
+    <select id="secFil" onchange="applyFilters()">
+      <option value="All">All Sectors</option>
+      <option value="Auto Ancillaries">Auto Ancillaries</option><option value="Automobiles">Automobiles</option><option value="Aviation">Aviation</option><option value="Banking">Banking</option><option value="Capital Goods">Capital Goods</option><option value="Cement">Cement</option><option value="Chemicals">Chemicals</option><option value="Coal">Coal</option><option value="Consumer Durables">Consumer Durables</option><option value="Defence">Defence</option><option value="Diversified">Diversified</option><option value="FMCG">FMCG</option><option value="Finance">Finance</option><option value="Healthcare">Healthcare</option><option value="Hotels">Hotels</option><option value="IT">IT</option><option value="IT & Internet">IT & Internet</option><option value="Infrastructure">Infrastructure</option><option value="Insurance">Insurance</option><option value="Logistics">Logistics</option><option value="Media">Media</option><option value="Metals & Mining">Metals & Mining</option><option value="Misc">Misc</option><option value="NBFC">NBFC</option><option value="Oil & Gas">Oil & Gas</option><option value="Paints">Paints</option><option value="Pharma">Pharma</option><option value="Power">Power</option><option value="Real Estate">Real Estate</option><option value="Retail">Retail</option><option value="Telecom">Telecom</option><option value="Textiles">Textiles</option>
+    </select></div>
+  <div class="fg"><label>Search</label>
+    <input type="text" id="searchBox" placeholder="Company or Ticker…" oninput="applyFilters()"></div>
+  <div class="fg"><label>Max P/E</label>
+    <input type="number" id="maxPE" style="width:62px" placeholder="50" oninput="applyFilters()"></div>
+  <div class="fg"><label>Min MCap &#x20B9;Cr</label>
+    <input type="number" id="minMcap" style="width:88px" placeholder="5000" oninput="applyFilters()"></div>
+  <div class="fg"><label>Movers</label>
+    <select id="chgFil" onchange="applyFilters()" style="min-width:105px">
+      <option value="all">All</option>
+      <option value="g">&#x25B2; Gainers</option>
+      <option value="l">&#x25BC; Losers</option>
+    </select></div>
+  <div class="fg"><label>52W Zone</label>
+    <select id="wkFil" onchange="applyFilters()" style="min-width:140px">
+      <option value="all">All</option>
+      <option value="nh">Near 52W High (&gt;80%)</option>
+      <option value="nl">Near 52W Low (&lt;20%)</option>
+    </select></div>
+  <span id="fundProg"></span>
+  <span id="stockCount"></span>
+  <button class="btn-sm btn-fund" onclick="loadFundamentals()">&#x1F4C1; Load D/E &amp; CR</button>
+  <button class="btn-sm btn-export" onclick="exportXL()">&#x1F4E5; Export Excel</button>
+</div>
+
+<!-- SUMMARY -->
+<div id="sum">
+  <div class="sc"><div class="v" id="sTotal">—</div><div class="l">Showing</div></div>
+  <div class="sc g"><div class="v" id="sG">—</div><div class="l">&#x25B2; Gainers</div></div>
+  <div class="sc r"><div class="v" id="sL">—</div><div class="l">&#x25BC; Losers</div></div>
+  <div class="sc a"><div class="v" id="sF">—</div><div class="l">Flat</div></div>
+  <div class="sc"><div class="v" id="sAvgPE">—</div><div class="l">Avg P/E</div></div>
+  <div class="sc t"><div class="v" id="sNH">—</div><div class="l">Near 52W High</div></div>
+  <div class="sc r"><div class="v" id="sNL">—</div><div class="l">Near 52W Low</div></div>
+  <div class="sc"><div class="v" id="sLoaded" style="font-size:12px">—</div><div class="l">Live Prices</div></div>
+  <div class="sc"><div class="v" id="sAge" style="font-size:12px">—</div><div class="l">Data Age</div></div>
+</div>
+
+<!-- TABLE -->
+<div id="tw">
+<table id="tbl">
+<thead>
+<!-- GROUP LABEL ROW -->
+<tr class="grp-row">
+  <th class="s0 sc0g" rowspan="1"></th>
+  <th class="s1 sc1g" colspan="1" style="text-align:left">Company</th>
+  <th class="s2 sc2g" colspan="1" style="text-align:left">Sector</th>
+  <th class="s3 sc3g" colspan="1" style="text-align:left">Ticker</th>
+  <th colspan="1" style="text-align:center">Price</th>
+  <th colspan="3" class="g52h" style="text-align:center">&#x25B2; 52 WEEK HIGH</th>
+  <th colspan="3" class="g52l" style="text-align:center">&#x25BC; 52 WEEK LOW</th>
+  <th colspan="1" class="g52" style="text-align:center">52W Range</th>
+  <th colspan="2" style="text-align:center">Daily Move</th>
+  <th colspan="4" style="text-align:center">Fundamentals</th>
+  <th colspan="2" style="text-align:center">Valuation</th>
+  <th colspan="2" style="text-align:center">Book / Div</th>
+  <th colspan="4" style="text-align:center">Info</th>
+  <th colspan="3" class="gBuy" style="text-align:center">&#x1F3AF; Buy Targets (Dip %)</th>
+  <th colspan="1" style="text-align:center">Notes</th>
+</tr>
+<!-- COLUMN LABEL ROW -->
+<tr class="col-row">
+  <th class="s0" onclick="sortBy('no')">#<span class="si"></span></th>
+  <th class="s1" onclick="sortBy('company')">Company<span class="si"></span></th>
+  <th class="s2" onclick="sortBy('sector')">Sector<span class="si"></span></th>
+  <th class="s3" onclick="sortBy('ticker')">Ticker<span class="si"></span></th>
+  <th onclick="sortBy('cmp')">CMP &#x20B9;<span class="si"></span></th>
+  <th class="th52h" onclick="sortBy('high52')">52W High &#x20B9;<span class="si"></span></th>
+  <th class="th52h" onclick="sortBy('fromHigh')">% from High<span class="si"></span></th>
+  <th class="th52h" onclick="sortBy('high52')">High Date<span class="si"></span></th>
+  <th class="th52l" onclick="sortBy('low52')">52W Low &#x20B9;<span class="si"></span></th>
+  <th class="th52l" onclick="sortBy('fromLow')">% from Low<span class="si"></span></th>
+  <th class="th52l" onclick="sortBy('low52')">Low Date<span class="si"></span></th>
+  <th class="thRng" style="min-width:95px">Position in Range</th>
+  <th onclick="sortBy('change')">Chg &#x20B9;<span class="si"></span></th>
+  <th onclick="sortBy('changePct')">Chg %<span class="si"></span></th>
+  <th onclick="sortBy('de')">D/E<span class="si"></span></th>
+  <th onclick="sortBy('cr')">CR<span class="si"></span></th>
+  <th onclick="sortBy('roce')">ROCE %<span class="si"></span></th>
+  <th onclick="sortBy('eps')">EPS<span class="si"></span></th>
+  <th onclick="sortBy('pe')">P/E<span class="si"></span></th>
+  <th onclick="sortBy('indPE')">Ind PE<span class="si"></span></th>
+  <th onclick="sortBy('bvps')">BVPS<span class="si"></span></th>
+  <th onclick="sortBy('pb')">P/B<span class="si"></span></th>
+  <th onclick="sortBy('faceValue')">FV<span class="si"></span></th>
+  <th onclick="sortBy('dps')">DPS<span class="si"></span></th>
+  <th onclick="sortBy('divYield')">Div Yld<span class="si"></span></th>
+  <th onclick="sortBy('mcap')">MCap Cr<span class="si"></span></th>
+  <th onclick="sortBy('lotSize')">Lot<span class="si"></span></th>
+  <th onclick="sortBy('totalInv')" style="background:#1b4332">Total Inv &#x20B9;<span class="si"></span></th>
+  <th onclick="sortBy('price10')" style="background:#1b4332">@10% off<span class="si"></span></th>
+  <th onclick="sortBy('price75')" style="background:#14532d">@7.5% off<span class="si"></span></th>
+  <th onclick="sortBy('price5')" style="background:#166534">@5% off<span class="si"></span></th>
+  <th style="min-width:185px;cursor:default;background:#1a1a2e">Reserve &amp; Surplus</th>
+</tr>
+</thead>
+<tbody id="tbody">
+<tr><td colspan="32" class="no-data">Loading live prices…</td></tr>
+</tbody>
+</table>
+</div>
+<div id="dsBar">
+  &#x26A0; 52W data pre-loaded from reference file &bull;
+  Live prices via <b>Yahoo Finance</b> (updates ~15-30s) &bull;
+  Run <code>nse_live_server.py</code> for WebSocket push every ~5s &bull;
+  For 1-second NSE ticks: <a href="https://kite.trade/docs/connect/v3/" target="_blank">Zerodha Kite</a> /
+  <a href="https://upstox.com/developer/api-documentation/" target="_blank">Upstox API</a> (template in server script)
+</div>
+<div id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+const STOCKS = [{"company": "ABB India Ltd", "sector": "Capital Goods", "ticker": "ABB", "yf": "ABB.NS", "lotSize": 125.0, "faceValue": 2.0, "de": 0.0, "cr": 1.82, "roce": 30.7, "eps": 78.78, "pe": 91.0003, "bvps": 299.0, "pb": 23.9766, "dps": 24.3746, "divYield": 0.0034, "mcap": 15210777.77, "cmp": 7169.0, "rs": "Reserve & Surplus have shown growth each year from 2014 to 2024", "high52": 7822.5, "low52": 4637.5}, {"company": "ACC Ltd", "sector": "Cement", "ticker": "ACC", "yf": "ACC.NS", "lotSize": 300.0, "faceValue": 10.0, "de": 0.0, "cr": 1.64, "roce": 17.3, "eps": 140.76, "pe": 10.0547, "bvps": 890.0, "pb": 1.5902, "dps": 5.2366, "divYield": 0.0037, "mcap": 2657752.333, "cmp": 1415.3, "rs": "Reserves and Surplus has shown growth each year and as for March Sep 2024 has 16533", "high52": 2028.8, "low52": 1251.7}, {"company": "APL Apollo Tubes Ltd\n", "sector": "Misc", "ticker": "APLAPOLLO", "yf": "APLAPOLLO.NS", "lotSize": 350.0, "faceValue": 2.0, "de": null, "cr": null, "roce": 25.2, "eps": 41.13, "pe": 46.3311, "bvps": 139.0, "pb": 13.7094, "dps": 6.8602, "divYield": 0.0036, "mcap": 5307162.725, "cmp": 1905.6, "rs": "Reserve & Surplus have shown growth each year from 2015 to 2024", "high52": 2301.4, "low52": 1492.0}, {"company": "AU Small Finance Bank Ltd", "sector": "Banking", "ticker": "AUBANK", "yf": "AUBANK.NS", "lotSize": 1000.0, "faceValue": 10.0, "de": null, "cr": 2.31, "roce": 7.71, "eps": 35.01, "pe": 29.136, "bvps": 188.0, "pb": 5.4258, "dps": 1.8361, "divYield": 0.0018, "mcap": 7617124.792, "cmp": 1020.05, "rs": "Reserve & Surplus have shown growth each year from 2013 to 2024", "high52": 1079.55, "low52": 655.5}, {"company": "Aarti Industries Ltd.", "sector": "Chemicals", "ticker": "AARTIIND", "yf": "AARTIIND.NS", "lotSize": 1000.0, "faceValue": 5.0, "de": 0.58, "cr": 0.8836, "roce": 7.47, "eps": 10.4, "pe": 47.9567, "bvps": 150.0, "pb": 3.325, "dps": 1.197, "divYield": 0.0024, "mcap": 180644.5843, "cmp": 498.75, "rs": "Reserve & Surplus have shown growth each year from 2014 to 2024", "high52": 512.4, "low52": 338.05}, {"company": "Abbott India Ltd.", "sector": "Pharma", "ticker": "ABBOTINDIA", "yf": "ABBOTINDIA.NS", "lotSize": 20.0, "faceValue": 10.0, "de": 0.0, "cr": 2.51, "roce": 46.0, "eps": 717.26, "pe": 35.3707, "bvps": 1500.54, "pb": 16.9072, "dps": 352.643, "divYield": 0.0139, "mcap": 5392009.875, "cmp": 25370.0, "rs": "Reserve & Surplus have shown growth each year from 2014-2023", "high52": 37000.0, "low52": 25150.0}, {"company": "Adani Energy Solutions Ltd", "sector": "Misc", "ticker": "ADANIENSOL", "yf": "ADANIENSOL.NS", "lotSize": 625.0, "faceValue": 10.0, "de": null, "cr": null, "roce": 9.0, "eps": 19.0, "pe": 70.4, "bvps": 175.0, "pb": 7.6434, "dps": 0.0, "divYield": 0.0, "mcap": 15875542.86, "cmp": 1337.6, "rs": "Reserve & Surplus have shown growth each year from 2016 to 2024", "high52": 1463.65, "low52": 744.9}, {"company": "Adani Enterprises Ltd.", "sector": "Diversified", "ticker": "ADANIENT", "yf": "ADANIENT.NS", "lotSize": 300.0, "faceValue": 1.0, "de": 1.16, "cr": null, "roce": 9.87, "eps": 116.54, "pe": 20.3012, "bvps": 368.0, "pb": 6.4291, "dps": 1.1829, "divYield": 0.0005, "mcap": 27420824.09, "cmp": 2365.9, "rs": "nan", "high52": 2612.76, "low52": 1753.0}, {"company": "Adani Green Energy Ltd", "sector": "Misc", "ticker": "ADANIGREEN", "yf": "ADANIGREEN.NS", "lotSize": 375.0, "faceValue": 10.0, "de": null, "cr": null, "roce": 9.65, "eps": 9.65, "pe": 125.8912, "bvps": 66.8, "pb": 18.1864, "dps": 0.0, "divYield": 0.0, "mcap": 20020599.89, "cmp": 1214.85, "rs": " ", "high52": 1271.95, "low52": 765.0}, {"company": "Adani Ports and Special Economic Zone Ltd", "sector": "Infrastructure", "ticker": "ADANIPORTS", "yf": "ADANIPORTS.NS", "lotSize": 400.0, "faceValue": 2.0, "de": 1.11, "cr": 1.35, "roce": 12.9, "eps": 57.72, "pe": 28.2918, "bvps": 265.0, "pb": 6.1623, "dps": 7.0219, "divYield": 0.0043, "mcap": 37623650.47, "cmp": 1633.0, "rs": "Reserve & Surplus have shown growth each year from 2014 to 2024", "high52": 1672.0, "low52": 1203.9}, {"company": "Adani Total Gas Ltd", "sector": "Misc", "ticker": "ATGL", "yf": "ATGL.NS", "lotSize": 775.0, "faceValue": 1.0, "de": null, "cr": null, "roce": 21.2, "eps": 5.96, "pe": 105.5201, "bvps": 35.6, "pb": 17.6657, "dps": 0.2516, "divYield": 0.0004, "mcap": 6931644.3, "cmp": 628.9, "rs": "Reserve & Surplus have shown growth each year from 2018 to 2024", "high52": 798.0, "low52": 462.8}, {"company": "Adani Wilmar", "sector": "FMCG", "ticker": "AWL", "yf": "AWL.NS", "lotSize": 1750.0, "faceValue": 1.0, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "Aditya Birla Capital Ltd", "sector": "Finance", "ticker": "ABCAPITAL", "yf": "ABCAPITAL.NS", "lotSize": 2700.0, "faceValue": 10.0, "de": 3.75, "cr": 3.45, "roce": 9.95, "eps": 13.29, "pe": 25.9368, "bvps": 110.0, "pb": 3.1336, "dps": 0.0, "divYield": 0.0, "mcap": 8971114.08, "cmp": 344.7, "rs": "Reserve & Surplus have shown growth each year from 2014 to 2024", "high52": 369.3, "low52": 188.41}, {"company": "Aditya Birla Fashion & Retail Ltd.", "sector": "Retail", "ticker": "ABFRL", "yf": "ABFRL.NS", "lotSize": 2600.0, "faceValue": 10.0, "de": 0.69, "cr": 1.01, "roce": 0.25, "eps": -5.31, "pe": -12.1281, "bvps": 38.3, "pb": 1.6815, "dps": 0.0, "divYield": 0.0, "mcap": 783847.7211, "cmp": 64.4, "rs": "Reserve & Surplus have shown growth each year from 2014 to 2024", "high52": 98.76, "low52": 53.51}, {"company": "Aether Industries Ltd", "sector": "Chemicals", "ticker": "AETHER", "yf": "AETHER.NS", "lotSize": 400, "faceValue": 10, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "Alkem Laboratories Ltd.", "sector": "Pharma", "ticker": "ALKEM", "yf": "ALKEM.NS", "lotSize": 100.0, "faceValue": 2.0, "de": 0.15, "cr": 2.35, "roce": 19.7, "eps": 198.32, "pe": 26.9211, "bvps": 961.0, "pb": 5.5557, "dps": 38.4408, "divYield": 0.0072, "mcap": 6375200.468, "cmp": 5339.0, "rs": "Reserve & Surplus have shown growth each year from 2014 to 2024", "high52": 5933.5, "low52": 4716.2}, {"company": "Amber Enterprises", "sector": "Consumer Durables", "ticker": "AMBER", "yf": "AMBER.NS", "lotSize": 200.0, "faceValue": 10.0, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "Ambuja Cements Ltd.", "sector": "Cement", "ticker": "AMBUJACEM", "yf": "AMBUJACEM.NS", "lotSize": 900.0, "faceValue": 2.0, "de": 0.0, "cr": 1.67, "roce": 12.8, "eps": 15.05, "pe": 29.4252, "bvps": 205.0, "pb": 2.1602, "dps": 1.6385, "divYield": 0.0037, "mcap": 10990340.86, "cmp": 442.85, "rs": "Reserve & Surplus have shown growth each year from 2014 to 2024", "high52": 624.95, "low52": 394.0}, {"company": "Angel One Ltd", "sector": "Misc", "ticker": "ANGELONE", "yf": "ANGELONE.NS", "lotSize": 200.0, "faceValue": 10.0, "de": null, "cr": null, "roce": 38.7, "eps": 9.85, "pe": 31.3604, "bvps": 585.0, "pb": 0.528, "dps": 4.0775, "divYield": 0.0132, "mcap": 2811822.153, "cmp": 308.9, "rs": "Reserve & Surplus have shown growth each year from 2015 to 2024", "high52": 330.23, "low52": 208.63}, {"company": "Apar Industries", "sector": "Capital Goods", "ticker": "APARINDS", "yf": "APARINDS.NS", "lotSize": 400.0, "faceValue": 10.0, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "Apollo Hospitals Enterprises Ltd", "sector": "Healthcare", "ticker": "APOLLOHOSP", "yf": "APOLLOHOSP.NS", "lotSize": 125.0, "faceValue": 5.0, "de": 0.44, "cr": 1.3, "roce": 15.1, "eps": 125.33, "pe": 60.7237, "bvps": 522.0, "pb": 14.5795, "dps": 16.7431, "divYield": 0.0022, "mcap": 10926918.28, "cmp": 7610.5, "rs": "Reserves & Surplus have shown growth each year from 2014 to 2024 except for FY 2017-18 where it has seen declined.", "high52": 8099.5, "low52": 6677.5}, {"company": "Apollo Tyres Ltd", "sector": "Auto Ancillaries", "ticker": "APOLLOTYRE", "yf": "APOLLOTYRE.NS", "lotSize": 1700.0, "faceValue": 1.0, "de": 0.43, "cr": 1.11, "roce": 16.4, "eps": 14.61, "pe": 28.2546, "bvps": 225.0, "pb": 1.8347, "dps": 4.9536, "divYield": 0.012, "mcap": 2611295.529, "cmp": 412.8, "rs": "Reserve & Surplus have shown growth each year from 2014 to 2024 except for FY 2019-2020 where it has been declined.", "high52": 540.5, "low52": 392.05}, {"company": "Ashok Leyland Ltd.", "sector": "Automobiles", "ticker": "ASHOKLEY", "yf": "ASHOKLEY.NS", "lotSize": 2500.0, "faceValue": 1.0, "de": 3.64, "cr": 1.08, "roce": 15.0, "eps": 5.63, "pe": 28.698, "bvps": 35.1, "pb": 4.6031, "dps": 3.5545, "divYield": 0.022, "mcap": 9491560.463, "cmp": 161.57, "rs": "Reserve & Surplus have shown growth each year from 2014-2023 except for Fy 2020 and 2022 where it showed a decline ", "high52": 215.42, "low52": 108.1}, {"company": "Asian Paints Ltd", "sector": "Paints", "ticker": "ASIANPAINT", "yf": "ASIANPAINT.NS", "lotSize": 200.0, "faceValue": 1.0, "de": 0.06, "cr": 2.09, "roce": 37.5, "eps": 40.1, "pe": 60.4214, "bvps": 188.0, "pb": 12.8878, "dps": 34.4052, "divYield": 0.0142, "mcap": 23259878.36, "cmp": 2422.9, "rs": "Reserve & Surplus have shown growth each year from March 2013 to March 2024 and then declined in Sep 2024 ", "high52": 2985.7, "low52": 2115.0}, {"company": "Aster DM Healthcare", "sector": "Healthcare", "ticker": "ASTERDM", "yf": "ASTERDM.NS", "lotSize": 1500, "faceValue": 10, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "Astral Ltd", "sector": "Chemicals", "ticker": "ASTRAL", "yf": "ASTRAL.NS", "lotSize": 367.0, "faceValue": 1.0, "de": 0.03, "cr": 1.69, "roce": 23.2, "eps": 18.73, "pe": 81.575, "bvps": 125.0, "pb": 12.2232, "dps": 3.5142, "divYield": 0.0023, "mcap": 4099602.052, "cmp": 1527.9, "rs": "Reserve & Surplus have shown growth each year from 2013 to 2024", "high52": 1768.7, "low52": 1250.0}, {"company": "Atul Ltd", "sector": "Chemicals", "ticker": "ATUL", "yf": "ATUL.NS", "lotSize": 100.0, "faceValue": 10.0, "de": 0.01, "cr": 2.49, "roce": 8.74, "eps": 230.25, "pe": 29.3941, "bvps": 1905.0, "pb": 3.5528, "dps": 19.6272, "divYield": 0.0029, "mcap": 1990998.344, "cmp": 6768.0, "rs": "Reserve & Surplus have shown growth each year from 2013 to 2024", "high52": 7788.0, "low52": 5560.5}, {"company": "Aurobindo Pharma Ltd", "sector": "Pharma", "ticker": "AUROPHARMA", "yf": "AUROPHARMA.NS", "lotSize": 550.0, "faceValue": 1.0, "de": 0.18, "cr": 1.87, "roce": 14.1, "eps": 60.04, "pe": 23.1412, "bvps": 527.0, "pb": 2.6364, "dps": 4.8629, "divYield": 0.0035, "mcap": 8063849.556, "cmp": 1389.4, "rs": "Reserve & Surplus have shown growth each year from 2014 to 2024", "high52": 1459.5, "low52": 1016.1}, {"company": "Avenue Supermarts Ltd\n", "sector": "Misc", "ticker": "DMART", "yf": "DMART.NS", "lotSize": 150.0, "faceValue": 10.0, "de": null, "cr": null, "roce": 19.4, "eps": 43.91, "pe": 103.3705, "bvps": 309.0, "pb": 14.6893, "dps": 0.0, "divYield": 0.0, "mcap": 2951784757200.0, "cmp": 4539.0, "rs": "Reserve & Surplus have shown growth each year from Fy2014-2024", "high52": 4949.5, "low52": 3529.0}, {"company": "Axis Bank Ltd", "sector": "Banking", "ticker": "AXISBANK", "yf": "AXISBANK.NS", "lotSize": 625.0, "faceValue": 2.0, "de": null, "cr": 3.26, "roce": 7.06, "eps": 84.48, "pe": 14.942, "bvps": 509.0, "pb": 2.48, "dps": 1.1361, "divYield": 0.0009, "mcap": 39254972.97, "cmp": 1262.3, "rs": "Reserve & Surplus have shown growth each year from 2013 to 2024", "high52": 1418.3, "low52": 1042.5}, {"company": "BSE Ltd", "sector": "Misc", "ticker": "BSE", "yf": "BSE.NS", "lotSize": 125.0, "faceValue": 1.0, "de": null, "cr": null, "roce": 20.0, "eps": 52.97, "pe": 68.1065, "bvps": 274.0, "pb": 13.1664, "dps": 10.462, "divYield": 0.0029, "mcap": 1468720194000.0, "cmp": 3607.6, "rs": "Reserves and surplus had been increased from 2013 to 2018 then starts declining and after 2 years it again starts increa", "high52": 3675.5, "low52": 2021.5}, {"company": "Bajaj Auto Ltd", "sector": "Automobiles", "ticker": "BAJAJ-AUTO", "yf": "BAJAJ-AUTO.NS", "lotSize": 75.0, "faceValue": 10.0, "de": 0.0, "cr": 1.83, "roce": 33.5, "eps": 317.47, "pe": 30.9573, "bvps": 1109.0, "pb": 8.862, "dps": 90.4176, "divYield": 0.0092, "mcap": 27357828.63, "cmp": 9828.0, "rs": "Reserve & Surplus have shown growth each year from 2014 to 2024", "high52": 10187.0, "low52": 7612.0}, {"company": "Bajaj Finance Ltd", "sector": "NBFC", "ticker": "BAJFINANCE", "yf": "BAJFINANCE.NS", "lotSize": 125.0, "faceValue": 2.0, "de": 3.99, "cr": 1.23, "roce": 11.9, "eps": 28.97, "pe": 32.7252, "bvps": 1402.0, "pb": 0.6762, "dps": 4.6454, "divYield": 0.0049, "mcap": 5899704232455.0, "cmp": 948.05, "rs": "Reserve & Surplus have shown growth each year from 2015-2024", "high52": 1102.5, "low52": 787.9}, {"company": "Bajaj Finserv Ltd.", "sector": "Finance", "ticker": "BAJAJFINSV", "yf": "BAJAJFINSV.NS", "lotSize": 500.0, "faceValue": 5.0, "de": 3.99, "cr": 2.04, "roce": 11.7, "eps": 59.95, "pe": 29.4229, "bvps": 428.0, "pb": 4.1213, "dps": 1.0583, "divYield": 0.0006, "mcap": 2817005604340.0, "cmp": 1763.9, "rs": "Reserve & Surplus have shown growth each year from 2013 to 2024", "high52": 2195.0, "low52": 1597.0}, {"company": "Balkrishna Industries Ltd", "sector": "Auto Ancillaries", "ticker": "BALKRISIND", "yf": "BALKRISIND.NS", "lotSize": 300.0, "faceValue": 2.0, "de": 0.44, "cr": 1.17, "roce": 17.6, "eps": 67.88, "pe": 31.591, "bvps": 486.0, "pb": 4.4123, "dps": 12.4375, "divYield": 0.0058, "mcap": 414607174930.0, "cmp": 2144.4, "rs": "Reserve & Surplus have shown growth each year from 2015 to 2024", "high52": 2817.5, "low52": 2015.4}, {"company": "Bandhan Bank Ltd", "sector": "Banking", "ticker": "BANDHANBNK", "yf": "BANDHANBNK.NS", "lotSize": 2800.0, "faceValue": 10.0, "de": null, "cr": 2.68, "roce": 7.06, "eps": 6.25, "pe": 31.376, "bvps": 134.0, "pb": 1.4634, "dps": 1.9218, "divYield": 0.0098, "mcap": 316154432500.0, "cmp": 196.1, "rs": "Reserve & Surplus have shown growth each year from 2015-2024 except for FY 2022 where it is declined.", "high52": 204.44, "low52": 134.25}, {"company": "Bank Of Baroda", "sector": "Banking", "ticker": "BANKBARODA", "yf": "BANKBARODA.NS", "lotSize": 2925.0, "faceValue": 2.0, "de": null, "cr": 2.81, "roce": 6.33, "eps": 37.65, "pe": 6.9636, "bvps": 231.0, "pb": 1.135, "dps": 8.5733, "divYield": 0.0327, "mcap": 1355827651283.0, "cmp": 262.18, "rs": "Reserve & Surplus have shown growth each year from 2014-2024", "high52": 325.5, "low52": 212.55}, {"company": "Bank of India", "sector": "Misc", "ticker": "BANKINDIA", "yf": "BANKINDIA.NS", "lotSize": 4825.0, "faceValue": 10.0, "de": null, "cr": null, "roce": 5.69, "eps": 21.57, "pe": 6.4882, "bvps": 155.0, "pb": 0.9029, "dps": 3.9046, "divYield": 0.0279, "mcap": 637191303886.0, "cmp": 139.95, "rs": "Reserve & Surplus have shown growth each year from 2014-2024", "high52": 178.36, "low52": 104.2}, {"company": "Bata India Ltd", "sector": "Retail", "ticker": "BATAINDIA", "yf": "BATAINDIA.NS", "lotSize": 375.0, "faceValue": 5.0, "de": 0.0, "cr": 1.96, "roce": 18.7, "eps": 13.84, "pe": 52.2182, "bvps": 114.0, "pb": 6.3395, "dps": 6.0707, "divYield": 0.0084, "mcap": 92826168200.0, "cmp": 722.7, "rs": "Reserve & Surplus have shown growth each year from 2015-2022, then inconsistent", "high52": 1300.7, "low52": 605.0}, {"company": "Berger Paints India Ltd", "sector": "Paints", "ticker": "BERGEPAINT", "yf": "BERGEPAINT.NS", "lotSize": 1320.0, "faceValue": 1.0, "de": 0.26, "cr": 1.4, "roce": 27.5, "eps": 9.04, "pe": 51.9137, "bvps": 48.0, "pb": 9.7771, "dps": 3.5198, "divYield": 0.0075, "mcap": 547137887834.0, "cmp": 469.3, "rs": "Reserve & Surplus have shown growth each year from 2013 to 2024", "high52": 605.0, "low52": 391.1}, {"company": "Bharat Electronics Ltd", "sector": "Capital Goods", "ticker": "BEL", "yf": "BEL.NS", "lotSize": 2850.0, "faceValue": 1.0, "de": 0.0, "cr": 1.46, "roce": 34.6, "eps": 8.16, "pe": 52.402, "bvps": 24.2, "pb": 17.6694, "dps": 3.3353, "divYield": 0.0078, "mcap": 3128950383669.0, "cmp": 427.6, "rs": "Reserve & Surplus have shown growth each year from 2013 to 2024", "high52": 473.45, "low52": 304.8}, {"company": "Bharat Forge Ltd", "sector": "Metals & Mining", "ticker": "BHARATFORG", "yf": "BHARATFORG.NS", "lotSize": 500.0, "faceValue": 2.0, "de": 1.02, "cr": 1.09, "roce": 12.9, "eps": 23.62, "pe": 78.6367, "bvps": 156.0, "pb": 11.9064, "dps": 13.559, "divYield": 0.0073, "mcap": 888049574500.0, "cmp": 1857.4, "rs": "Reserve & Surplus have shown growth each year from 2013 to 2024  except for FY 2015-16 and FY 2019-20", "high52": 1949.9, "low52": 1080.0}, {"company": "Bharat Heavy Electricals Ltd", "sector": "Capital Goods", "ticker": "BHEL", "yf": "BHEL.NS", "lotSize": 2625.0, "faceValue": 2.0, "de": 0.2, "cr": 1.29, "roce": 3.37, "eps": 2.64, "pe": 131.1856, "bvps": 69.5, "pb": 4.9832, "dps": 0.4156, "divYield": 0.0012, "mcap": 1206229022841.0, "cmp": 346.33, "rs": "Reserves and Surplus has been continuously declined since March 2018", "high52": 358.1, "low52": 205.12}, {"company": "Bharat Petroleum Corporation Ltd", "sector": "Oil & Gas", "ticker": "BPCL", "yf": "BPCL.NS", "lotSize": 1800.0, "faceValue": 10.0, "de": 1.13, "cr": 0.75, "roce": 32.1, "eps": 57.59, "pe": 5.2231, "bvps": 178.0, "pb": 1.6899, "dps": 22.56, "divYield": 0.075, "mcap": 1305890005000.0, "cmp": 300.8, "rs": "Reserve & Surplus have shown growth each year from 2014 to 2019 then starts fluctuating.", "high52": 391.65, "low52": 266.6}, {"company": "Bharti Airtel Ltd", "sector": "Telecom", "ticker": "BHARTIARTL", "yf": "BHARTIARTL.NS", "lotSize": 475.0, "faceValue": 5.0, "de": 2.0, "cr": 0.46, "roce": 13.1, "eps": 50.54, "pe": 37.0973, "bvps": 153.0, "pb": 12.2542, "dps": 9.3745, "divYield": 0.005, "mcap": 11423189296152.0, "cmp": 1874.9, "rs": "Reserve & Surplus have shown growth each year from 2013-2024 except for 2015 and 2021", "high52": 2174.5, "low52": 1746.9}, {"company": "Bikaji Foods", "sector": "FMCG", "ticker": "BIKAJI", "yf": "BIKAJI.NS", "lotSize": 1000.0, "faceValue": 1.0, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "Biocon Ltd", "sector": "Healthcare", "ticker": "BIOCON", "yf": "BIOCON.NS", "lotSize": 2500.0, "faceValue": 5.0, "de": 0.99, "cr": 1.45, "roce": 5.96, "eps": 4.85, "pe": 73.6495, "bvps": 175.0, "pb": 2.0411, "dps": 0.4644, "divYield": 0.0013, "mcap": 578649831330.0, "cmp": 357.2, "rs": "Reserve & Surplus have shown growth each year from 2013 to 2024", "high52": 424.95, "low52": 317.0}, {"company": "Birlasoft Ltd", "sector": "IT", "ticker": "BSOFT", "yf": "BSOFT.NS", "lotSize": 1000.0, "faceValue": 2.0, "de": 0.0, "cr": 3.48, "roce": 29.8, "eps": 16.6, "pe": 22.262, "bvps": 118.0, "pb": 3.1318, "dps": 4.4346, "divYield": 0.012, "mcap": 103221599318.0, "cmp": 369.55, "rs": "Reserve & Surplus have shown growth each year from 2013-2024 except for 2019 and 2023 where it showed a decline.", "high52": 474.0, "low52": 325.0}, {"company": "Bosch Ltd", "sector": "Auto Ancillaries", "ticker": "BOSCHLTD", "yf": "BOSCHLTD.NS", "lotSize": 25.0, "faceValue": 10.0, "de": 0.0, "cr": 1.76, "roce": 20.6, "eps": 934.67, "pe": 38.329, "bvps": 4319.0, "pb": 8.2947, "dps": 408.405, "divYield": 0.0114, "mcap": 1055872312000.0, "cmp": 35825.0, "rs": "Reserve & Surplus have shown growth each year from 2013 to 2024", "high52": 41945.0, "low52": 28610.0}, {"company": "Brigade Enterprises", "sector": "Real Estate", "ticker": "BRIGADE", "yf": "BRIGADE.NS", "lotSize": 750.0, "faceValue": 10.0, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "Britannia Industries Ltd", "sector": "FMCG", "ticker": "BRITANNIA", "yf": "BRITANNIA.NS", "lotSize": 100.0, "faceValue": 1.0, "de": 0.84, "cr": 1.15, "roce": 48.9, "eps": 100.26, "pe": 56.912, "bvps": 133.0, "pb": 42.9023, "dps": 85.0194, "divYield": 0.0149, "mcap": 1373912212800.0, "cmp": 5706.0, "rs": "Reserve & Surplus have shown growth each year from 2013 to 2020 then starts fluctuating.", "high52": 6336.0, "low52": 5276.5}, {"company": "CESC Ltd\n", "sector": "Misc", "ticker": "CESC", "yf": "CESC.NS", "lotSize": 2925.0, "faceValue": 1.0, "de": null, "cr": null, "roce": 0.116, "eps": 11.1, "pe": 16.6279, "bvps": 91.1, "pb": 2.026, "dps": 4.8911, "divYield": 0.0265, "mcap": 244501382454.0, "cmp": 184.57, "rs": "Reserves and surplus increases from March 2013 to March 2017 and then starts fluctuating.", "high52": 195.0, "low52": 138.12}, {"company": "CG Power & Industrial Solutions Ltd\n", "sector": "Misc", "ticker": "CGPOWER", "yf": "CGPOWER.NS", "lotSize": 725.0, "faceValue": 2.0, "de": null, "cr": null, "roce": 0.466, "eps": 7.17, "pe": 112.9916, "bvps": 23.0, "pb": 35.2239, "dps": 1.5393, "divYield": 0.0019, "mcap": 1275383153574.0, "cmp": 810.15, "rs": "Reserves and surplus is Inconsistent.", "high52": 846.9, "low52": 525.5}, {"company": "COFORGE Ltd", "sector": "IT", "ticker": "COFORGE", "yf": "COFORGE.NS", "lotSize": 75.0, "faceValue": 10.0, "de": 0.11, "cr": 1.51, "roce": 28.6, "eps": 35.56, "pe": 33.8105, "bvps": 896.0, "pb": 1.3419, "dps": 9.6184, "divYield": 0.008, "mcap": 74557837672.0, "cmp": 1202.3, "rs": "Reserve & Surplus have shown growth each year from Fy2013-2024", "high52": 1994.0, "low52": 1008.1}, {"company": "Campus Activewear", "sector": "Retail", "ticker": "CAMPUS", "yf": "CAMPUS.NS", "lotSize": 1500.0, "faceValue": 5.0, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "Can Fin Homes Ltd", "sector": "Finance", "ticker": "CANFINHOME", "yf": "CANFINHOME.NS", "lotSize": 975.0, "faceValue": 2.0, "de": 8.04, "cr": 1.53, "roce": 9.26, "eps": 81.54, "pe": 10.5807, "bvps": 353.0, "pb": 2.4441, "dps": 7.5059, "divYield": 0.0087, "mcap": 115111633000.0, "cmp": 862.75, "rs": "Reserve & Surplus have shown growth each year from 2013-2024", "high52": 971.5, "low52": 691.55}, {"company": "Canara Bank", "sector": "Banking", "ticker": "CANBK", "yf": "CANBK.NS", "lotSize": 6750.0, "faceValue": 2.0, "de": null, "cr": 4.09, "roce": 6.63, "eps": 20.25, "pe": 6.6212, "bvps": 102.0, "pb": 1.3145, "dps": 4.6526, "divYield": 0.0347, "mcap": 1216555399589.0, "cmp": 134.08, "rs": "Reserve & Surplus have shown growth each year from 2013 to 2024 except for 2016", "high52": 162.89, "low52": 90.95}, {"company": "Central Depository Services (India) Ltd\n", "sector": "Misc", "ticker": "CDSL", "yf": "CDSL.NS", "lotSize": 350.0, "faceValue": 10.0, "de": null, "cr": null, "roce": 40.2, "eps": 22.79, "pe": 55.9017, "bvps": 73.2, "pb": 17.4044, "dps": 7.2618, "divYield": 0.0057, "mcap": 266224082825.0, "cmp": 1274.0, "rs": "Reserve & Surplus have shown growth each year from 2013-2024", "high52": 1828.9, "low52": 1116.3}, {"company": "Chambal Fertilisers and Chemicals Ltd", "sector": "Chemicals", "ticker": "CHAMBLFERT", "yf": "CHAMBLFERT.NS", "lotSize": 1900.0, "faceValue": 10.0, "de": 0.4718, "cr": 1.79, "roce": 0.202, "eps": 47.78, "pe": 9.2036, "bvps": 205.0, "pb": 2.1451, "dps": 6.6402, "divYield": 0.0151, "mcap": 176287012000.0, "cmp": 439.75, "rs": "Reserve & Surplus have shown growth each year from 2013-2024 except for FY2016", "high52": 742.2, "low52": 399.75}, {"company": "Cholamandalam Investment and Finance Company Ltd", "sector": "NBFC", "ticker": "CHOLAFIN", "yf": "CHOLAFIN.NS", "lotSize": 1250.0, "faceValue": 2.0, "de": 5.88, "cr": 1.52, "roce": 0.104, "eps": 57.49, "pe": 26.222, "bvps": 255.0, "pb": 5.9118, "dps": 2.412, "divYield": 0.0016, "mcap": 1285049154722.0, "cmp": 1507.5, "rs": "Reserve & Surplus have shown growth each year from 2013 to 2024", "high52": 1831.5, "low52": 1299.4}, {"company": "Cipla Ltd.", "sector": "Pharma", "ticker": "CIPLA", "yf": "CIPLA.NS", "lotSize": 325.0, "faceValue": 2.0, "de": 0.02, "cr": 3.38, "roce": 22.8, "eps": 56.26, "pe": 23.3434, "bvps": 351.0, "pb": 3.7416, "dps": 11.4257, "divYield": 0.0087, "mcap": 1061426336400.0, "cmp": 1313.3, "rs": "Reserve & Surplus have shown growth each year from 2013 to 2024", "high52": 1673.0, "low52": 1165.7}, {"company": "City Union Bank Ltd", "sector": "Banking", "ticker": "CUB", "yf": "CUB.NS", "lotSize": 5000.0, "faceValue": 1.0, "de": 0.63, "cr": 4.49, "roce": 6.57, "eps": 17.83, "pe": 15.3057, "bvps": 113.0, "pb": 2.415, "dps": 2.538, "divYield": 0.0093, "mcap": 202945169700.0, "cmp": 272.9, "rs": "Reserve & Surplus have shown growth each year from Fy2014-2024", "high52": 324.1, "low52": 172.01}, {"company": "Clean Science & Technology", "sector": "Chemicals", "ticker": "CLEAN", "yf": "CLEAN.NS", "lotSize": 500, "faceValue": 1, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "Coal India Ltd.", "sector": "Coal", "ticker": "COALINDIA", "yf": "COALINDIA.NS", "lotSize": 1050.0, "faceValue": 10.0, "de": 0.0719, "cr": 1.57, "roce": 63.6, "eps": 50.46, "pe": 9.5848, "bvps": 156.0, "pb": 3.1003, "dps": 33.4686, "divYield": 0.0692, "mcap": 2974748880828.0, "cmp": 483.65, "rs": "Reserves and surplus is Inconsistent.", "high52": 491.25, "low52": 368.65}, {"company": "Cochin Shipyard Ltd", "sector": "Defence", "ticker": "COCHINSHIP", "yf": "COCHINSHIP.NS", "lotSize": 300, "faceValue": 10, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "Colgate Palmolive (India) Ltd.", "sector": "FMCG", "ticker": "COLPAL", "yf": "COLPAL.NS", "lotSize": 175.0, "faceValue": 1.0, "de": 0.0, "cr": 1.43, "roce": 96.8, "eps": 48.8, "pe": 42.9959, "bvps": 60.8, "pb": 34.5099, "dps": 36.5087, "divYield": 0.0174, "mcap": 570979383360.0, "cmp": 2098.2, "rs": "Reserve & Surplus have shown growth each year from FY2013-2018 then started fluctuating.", "high52": 2747.4, "low52": 1782.0}, {"company": "Computer Age Management Services Ltd\n", "sector": "Misc", "ticker": "CAMS", "yf": "CAMS.NS", "lotSize": 125.0, "faceValue": 10.0, "de": null, "cr": null, "roce": 49.8, "eps": 18.65, "pe": 39.3244, "bvps": 201.0, "pb": 3.6488, "dps": 7.334, "divYield": 0.01, "mcap": 183250215912.0, "cmp": 733.4, "rs": "Reserve & Surplus have shown growth each year from 2013-2024 except 2021", "high52": 875.0, "low52": 611.4}, {"company": "Container Corporation of India Ltd", "sector": "Logistics", "ticker": "CONCOR", "yf": "CONCOR.NS", "lotSize": 1000.0, "faceValue": 5.0, "de": 0.0, "cr": 3.05, "roce": 13.9, "eps": 16.08, "pe": 31.704, "bvps": 200.0, "pb": 2.549, "dps": 7.9019, "divYield": 0.0155, "mcap": 388120537448.0, "cmp": 509.8, "rs": "Reserve & Surplus have shown growth each year from Fy2014-2023 except for FY 2020 and 2021", "high52": 652.04, "low52": 421.45}, {"company": "Coromandel International Ltd", "sector": "Chemicals", "ticker": "COROMANDEL", "yf": "COROMANDEL.NS", "lotSize": 350.0, "faceValue": 1.0, "de": 0.0, "cr": 1.75, "roce": 26.0, "eps": 81.23, "pe": 24.4762, "bvps": 345.0, "pb": 5.7629, "dps": 6.5611, "divYield": 0.0033, "mcap": 587806090723.0, "cmp": 1988.2, "rs": "Reserve & Surplus have shown growth each year from Fy2013-2024 except for Fy 2015", "high52": 2718.9, "low52": 1818.1}, {"company": "Crompton Greaves Consumer Electrical Ltd", "sector": "Consumer Durables", "ticker": "CROMPTON", "yf": "CROMPTON.NS", "lotSize": 1800.0, "faceValue": 2.0, "de": 0.35, "cr": 1.3, "roce": 15.8, "eps": 7.17, "pe": 37.5119, "bvps": 48.3, "pb": 5.5685, "dps": 2.2862, "divYield": 0.0085, "mcap": 173213108100.0, "cmp": 268.96, "rs": "Reserve & Surplus have shown growth each year from Fy2018-2024", "high52": 362.75, "low52": 217.4}, {"company": "Cummins India Ltd", "sector": "Auto Ancillaries", "ticker": "CUMMINSIND", "yf": "CUMMINSIND.NS", "lotSize": 150.0, "faceValue": 2.0, "de": 0.06, "cr": 2.7, "roce": 35.2, "eps": 80.87, "pe": 64.9561, "bvps": 234.0, "pb": 22.4487, "dps": 69.8649, "divYield": 0.0133, "mcap": 1456159347070.0, "cmp": 5253.0, "rs": "Reserve & Surplus have shown growth each year from Fy2014-2024", "high52": 5324.8, "low52": 2706.0}, {"company": "Cyient Ltd", "sector": "Misc", "ticker": "CYIENT", "yf": "CYIENT.NS", "lotSize": 300.0, "faceValue": 5.0, "de": null, "cr": null, "roce": 21.9, "eps": 38.78, "pe": 22.4575, "bvps": 463.0, "pb": 1.881, "dps": 15.1537, "divYield": 0.0174, "mcap": 96472119100.0, "cmp": 870.9, "rs": "Reserve & Surplus have shown growth each year from FY 2013-2024 Except FY 2020", "high52": 1376.0, "low52": 750.3}, {"company": "DLF Ltd", "sector": "Real Estate", "ticker": "DLF", "yf": "DLF.NS", "lotSize": 825.0, "faceValue": 2.0, "de": 0.09, "cr": 2.3, "roce": 5.74, "eps": 17.9, "pe": 32.6453, "bvps": 163.0, "pb": 3.585, "dps": 3.9736, "divYield": 0.0068, "mcap": 1451027924616.0, "cmp": 584.35, "rs": "Reserves and surplus is Inconsistent.", "high52": 886.8, "low52": 489.4}, {"company": "Dabur India Ltd", "sector": "FMCG", "ticker": "DABUR", "yf": "DABUR.NS", "lotSize": 1250.0, "faceValue": 1.0, "de": 0.11, "cr": 1.18, "roce": 22.3, "eps": 10.39, "pe": 42.6083, "bvps": 58.5, "pb": 7.5675, "dps": 4.7812, "divYield": 0.0108, "mcap": 785212584651.0, "cmp": 442.7, "rs": "Reserve & Surplus have shown growth each year from Fy2014-2024 except for FY 2019", "high52": 577.0, "low52": 403.35}, {"company": "Dalmia Bharat Ltd", "sector": "Cement", "ticker": "DALBHARAT", "yf": "DALBHARAT.NS", "lotSize": 275.0, "faceValue": 2.0, "de": 0.24, "cr": 1.65, "roce": 6.71, "eps": 60.78, "pe": 31.4281, "bvps": 934.0, "pb": 2.0452, "dps": 9.933, "divYield": 0.0052, "mcap": 357406822450.0, "cmp": 1910.2, "rs": "Reserve & Surplus have shown growth each year from Fy2017-2024 except for FY 2020 and 2023", "high52": 2496.3, "low52": 1717.3}, {"company": "Data Patterns", "sector": "Defence", "ticker": "DATAPATT", "yf": "DATAPATT.NS", "lotSize": 400.0, "faceValue": 10.0, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "Deepak Nitrite Ltd", "sector": "Chemicals", "ticker": "DEEPAKNTR", "yf": "DEEPAKNTR.NS", "lotSize": 300.0, "faceValue": 2.0, "de": 0.01, "cr": 3.45, "roce": 21.6, "eps": 39.09, "pe": 44.7276, "bvps": 373.0, "pb": 4.6874, "dps": 5.5949, "divYield": 0.0032, "mcap": 238728674559.0, "cmp": 1748.4, "rs": "Reserve & Surplus have shown growth each year from Fy2015-2024", "high52": 2174.0, "low52": 1280.0}, {"company": "Delhivery Ltd", "sector": "Misc", "ticker": "DELHIVERY", "yf": "DELHIVERY.NS", "lotSize": 1525.0, "faceValue": 1.0, "de": null, "cr": null, "roce": -1.73, "eps": 2.01, "pe": 227.9104, "bvps": 125.0, "pb": 3.6648, "dps": 0.0, "divYield": 0.0, "mcap": 343276290700.0, "cmp": 458.1, "rs": "Reserves and surplus is Inconsistent.", "high52": 490.0, "low52": 295.4}, {"company": "Devyani International", "sector": "Hotels", "ticker": "DEVYANI", "yf": "DEVYANI.NS", "lotSize": 4000.0, "faceValue": 1.0, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "Divis Laboratories Ltd", "sector": "Pharma", "ticker": "DIVISLAB", "yf": "DIVISLAB.NS", "lotSize": 100.0, "faceValue": 2.0, "de": 0.0, "cr": 8.46, "roce": 16.5, "eps": 93.45, "pe": 69.3419, "bvps": 517.0, "pb": 12.5338, "dps": 32.4, "divYield": 0.005, "mcap": 1719440122200.0, "cmp": 6480.0, "rs": "Reserve & Surplus have shown growth each year from Fy2014-2024", "high52": 7071.5, "low52": 5636.5}, {"company": "Dixon Technologies Ltd", "sector": "Capital Goods", "ticker": "DIXON", "yf": "DIXON.NS", "lotSize": 50.0, "faceValue": 2.0, "de": 0.14, "cr": 1.07, "roce": 29.2, "eps": 272.62, "pe": 40.8884, "bvps": 372.0, "pb": 29.9651, "dps": 3.3441, "divYield": 0.0003, "mcap": 673183335960.0, "cmp": 11147.0, "rs": "Reserve & Surplus have shown growth each year from Fy2014-2024", "high52": 18471.0, "low52": 9600.0}, {"company": "Dr Reddys Laboratories Ltd", "sector": "Pharma", "ticker": "DRREDDY", "yf": "DRREDDY.NS", "lotSize": 625.0, "faceValue": 1.0, "de": 0.06, "cr": 2.41, "roce": 26.5, "eps": 66.81, "pe": 19.8024, "bvps": 369.0, "pb": 3.5854, "dps": 7.938, "divYield": 0.006, "mcap": 1100651665358.0, "cmp": 1323.0, "rs": "Reserve & Surplus have shown growth each year from Fy2014-2024 except Fy 2017", "high52": 1379.7, "low52": 1129.4}, {"company": "EIH Ltd (Oberoi)", "sector": "Hotels", "ticker": "EIHOTEL", "yf": "EIHOTEL.NS", "lotSize": 4000.0, "faceValue": 2.0, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "Eicher Motors Ltd", "sector": "Automobiles", "ticker": "EICHERMOT", "yf": "EICHERMOT.NS", "lotSize": 175.0, "faceValue": 1.0, "de": 0.01, "cr": 1.14, "roce": 31.1, "eps": 195.02, "pe": 36.1527, "bvps": 693.0, "pb": 10.1739, "dps": 70.505, "divYield": 0.01, "mcap": 1934052267100.0, "cmp": 7050.5, "rs": "Reserve & Surplus have shown growth each year from Fy2014-2024", "high52": 8230.0, "low52": 5219.5}, {"company": "Eris Lifesciences", "sector": "Pharma", "ticker": "ERIS", "yf": "ERIS.NS", "lotSize": 1200, "faceValue": 10, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "Escorts Kubota Ltd", "sector": "Automobiles", "ticker": "ESCORTS", "yf": "ESCORTS.NS", "lotSize": 150.0, "faceValue": 10.0, "de": 0.0, "cr": 2.86, "roce": 16.1, "eps": 217.37, "pe": 14.8305, "bvps": 879.0, "pb": 3.6675, "dps": 16.7632, "divYield": 0.0052, "mcap": 354591577916.0, "cmp": 3223.7, "rs": "Reserve & Surplus have shown growth each year from Fy2014-2024 except Fy 2015 and 2016", "high52": 4180.0, "low52": 2710.1}, {"company": "Exide Industries Ltd", "sector": "Capital Goods", "ticker": "EXIDEIND", "yf": "EXIDEIND.NS", "lotSize": 1800.0, "faceValue": 1.0, "de": 0.03, "cr": 1.9, "roce": 10.2, "eps": 8.39, "pe": 42.497, "bvps": 163.0, "pb": 2.1874, "dps": 1.8184, "divYield": 0.0051, "mcap": 303620010375.0, "cmp": 356.55, "rs": "Reserve & Surplus have shown growth each year from Fy2014-2024", "high52": 431.0, "low52": 287.0}, {"company": "Federal Bank Ltd", "sector": "Banking", "ticker": "FEDERALBNK", "yf": "FEDERALBNK.NS", "lotSize": 5000.0, "faceValue": 2.0, "de": null, "cr": 6.72, "roce": 6.93, "eps": 16.5, "pe": 17.2394, "bvps": 124.0, "pb": 2.294, "dps": 1.7636, "divYield": 0.0062, "mcap": 701036726384.0, "cmp": 284.45, "rs": "Reserve & Surplus have shown growth each year from Fy2014-2024", "high52": 302.0, "low52": 183.15}, {"company": "Fortis Healthcare", "sector": "Healthcare", "ticker": "FORTIS", "yf": "FORTIS.NS", "lotSize": 1500.0, "faceValue": 10.0, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "GAIL India Ltd", "sector": "Oil & Gas", "ticker": "GAIL", "yf": "GAIL.NS", "lotSize": 2350.0, "faceValue": 10.0, "de": 0.25, "cr": 0.95, "roce": 14.7, "eps": 13.06, "pe": 12.4227, "bvps": 127.0, "pb": 1.2775, "dps": 5.0132, "divYield": 0.0309, "mcap": 1066303753137.0, "cmp": 162.24, "rs": "Reserve & Surplus have shown growth each year from Fy2014-2024 except Fy 2023", "high52": 202.79, "low52": 134.36}, {"company": "GMR Airports Infrastructure Ltd", "sector": "Capital Goods", "ticker": "GMRINFRA", "yf": "GMRINFRA.NS", "lotSize": 5625.0, "faceValue": 1.0, "de": -40.56, "cr": 0.98, "roce": 6.41, "eps": -0.34, "pe": -279.2941, "bvps": -1.61, "pb": -58.9814, "dps": 0.0, "divYield": 0.0, "mcap": 999344357500.0, "cmp": 94.96, "rs": "Reserves and surplus have declined slowly and gradually from 2014-18 and then from 2019-2024 negative reserves and surpl", "high52": 110.36, "low52": 79.92}, {"company": "Gland Pharma Ltd", "sector": "Pharma", "ticker": "GLAND", "yf": "GLAND.NS", "lotSize": 200, "faceValue": 1, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "Glenmark Pharma Ltd", "sector": "Pharma", "ticker": "GLENMARK", "yf": "GLENMARK.NS", "lotSize": 325.0, "faceValue": 1.0, "de": 0.46, "cr": 1.96, "roce": 12.3, "eps": 37.72, "pe": 63.5843, "bvps": 299.0, "pb": 8.0214, "dps": 3.8374, "divYield": 0.0016, "mcap": 676915045180.0, "cmp": 2398.4, "rs": "Reserve & Surplus have shown growth each year from Fy2014-2023 except Fy 2015, FY 2023 and 2024", "high52": 2474.0, "low52": 1355.4}, {"company": "Godrej Consumer Products Ltd\n", "sector": "FMCG", "ticker": "GODREJCP", "yf": "GODREJCP.NS", "lotSize": 500.0, "faceValue": 1.0, "de": 0.08, "cr": 3.03, "roce": 19.0, "eps": 17.81, "pe": 59.8681, "bvps": 119.0, "pb": 8.9601, "dps": 14.0745, "divYield": 0.0132, "mcap": 1088168781836.0, "cmp": 1066.25, "rs": "Reserves and Surplus are fluctuating.", "high52": 1309.0, "low52": 967.05}, {"company": "Godrej Properties Ltd\n", "sector": "Infrastructure", "ticker": "GODREJPROP", "yf": "GODREJPROP.NS", "lotSize": 6500.0, "faceValue": 5.0, "de": 0.69, "cr": 1.46, "roce": 5.74, "eps": 52.54, "pe": 34.9144, "bvps": 390.0, "pb": 4.7036, "dps": 0.0, "divYield": 0.0, "mcap": 551601675717.0, "cmp": 1834.4, "rs": "Reserve & Surplus have shown growth each year from Fy2014-2024 except Fy 2016 and FY 2018", "high52": 2506.5, "low52": 1434.0}, {"company": "Granules India Ltd", "sector": "Pharma", "ticker": "GRANULES", "yf": "GRANULES.NS", "lotSize": 1000.0, "faceValue": 1.0, "de": 0.4, "cr": 1.42, "roce": 15.4, "eps": 22.48, "pe": 31.4546, "bvps": 141.0, "pb": 5.0149, "dps": 1.8385, "divYield": 0.0026, "mcap": 174895048995.0, "cmp": 707.1, "rs": "From 2014-2024 the Company's Reserve & Surplus are increasing", "high52": 730.8, "low52": 430.7}, {"company": "Grasim Industries Ltd", "sector": "Textiles", "ticker": "GRASIM", "yf": "GRASIM.NS", "lotSize": 250.0, "faceValue": 2.0, "de": 0.11, "cr": 1.16, "roce": 9.3, "eps": 62.39, "pe": 44.3821, "bvps": 1411.0, "pb": 1.9624, "dps": 11.9067, "divYield": 0.0043, "mcap": 1877953939224.0, "cmp": 2769.0, "rs": "Reserve & Surplus have shown growth each year from Fy2014-2024 except Fy 2020", "high52": 2979.0, "low52": 2502.5}, {"company": "Gujarat Gas Ltd\n", "sector": "Misc", "ticker": "GUJGASLTD", "yf": "GUJGASLTD.NS", "lotSize": 1250.0, "faceValue": 2.0, "de": 0.02, "cr": 0.71, "roce": 20.5, "eps": 16.88, "pe": 22.497, "bvps": 115.0, "pb": 3.3022, "dps": 4.3671, "divYield": 0.0115, "mcap": 261244005000.0, "cmp": 379.75, "rs": "Reserve & Surplus have shown growth each year from Fy2014-2024 except Fy 2016", "high52": 508.7, "low52": 301.5}, {"company": "Gujarat Narmada Valley Fert & Chem. Ltd", "sector": "Chemicals", "ticker": "GNFC", "yf": "GNFC.NS", "lotSize": 1300.0, "faceValue": 10.0, "de": 0.0, "cr": 3.77, "roce": 7.71, "eps": 42.46, "pe": 11.048, "bvps": 562.0, "pb": 0.8347, "dps": 14.4483, "divYield": 0.0308, "mcap": 69010651893.0, "cmp": 469.1, "rs": "Reserve & Surplus have shown growth each year from Fy2014-2023 except FY 2015 and again reduced in 2024", "high52": 573.75, "low52": 365.0}, {"company": "HCL Technologies Ltd", "sector": "IT", "ticker": "HCLTECH", "yf": "HCLTECH.NS", "lotSize": 350.0, "faceValue": 2.0, "de": 0.07, "cr": 2.5, "roce": 29.6, "eps": 61.36, "pe": 19.6757, "bvps": 254.0, "pb": 4.7531, "dps": 35.7361, "divYield": 0.0296, "mcap": 3268028840802.0, "cmp": 1207.3, "rs": "Reserve & Surplus have shown growth each year from Fy2014-2024", "high52": 1780.1, "low52": 1184.0}, {"company": "HDFC Asset Management Company Ltd\n", "sector": "Finance", "ticker": "HDFCAMC", "yf": "HDFCAMC.NS", "lotSize": 150.0, "faceValue": 5.0, "de": 0.0, "cr": 25.97, "roce": 37.7, "eps": 66.5, "pe": 40.7774, "bvps": 318.0, "pb": 8.5274, "dps": 46.9124, "divYield": 0.0173, "mcap": 580723998564.0, "cmp": 2711.7, "rs": "Reserve & Surplus have shown growth each year from Fy2014-2024", "high52": 2967.25, "low52": 2087.5}, {"company": "HDFC Bank Ltd", "sector": "Banking", "ticker": "HDFCBANK", "yf": "HDFCBANK.NS", "lotSize": 550.0, "faceValue": 1.0, "de": 0.0, "cr": null, "roce": 7.67, "eps": 49.28, "pe": 15.6382, "bvps": 601.0, "pb": 1.2823, "dps": 9.1707, "divYield": 0.0119, "mcap": 11864187951855.0, "cmp": 770.65, "rs": "Reserve & Surplus have shown growth each year from Fy2014-2024", "high52": 1020.5, "low52": 726.65}, {"company": "HDFC Life Insurance Company Ltd\n", "sector": "Insurance", "ticker": "HDFCLIFE", "yf": "HDFCLIFE.NS", "lotSize": 1100.0, "faceValue": 10.0, "de": 0.04, "cr": 0.84, "roce": 6.61, "eps": 8.87, "pe": 65.6708, "bvps": 72.5, "pb": 8.0345, "dps": 1.9805, "divYield": 0.0034, "mcap": 1251471563864.0, "cmp": 582.5, "rs": "Reserve & Surplus have shown growth each year from Fy2015-2024 Except FY 2023", "high52": 820.75, "low52": 555.1}, {"company": "HFCL Ltd\n", "sector": "Misc", "ticker": "HFCL", "yf": "HFCL.NS", "lotSize": 4150.0, "faceValue": 1.0, "de": null, "cr": null, "roce": 13.3, "eps": 0.35, "pe": 308.1429, "bvps": 29.0, "pb": 3.719, "dps": 0.2265, "divYield": 0.0021, "mcap": 165008262091.0, "cmp": 107.85, "rs": "Reserve & Surplus have shown growth each year from Fy2015-2024 except FY 2016", "high52": 111.0, "low52": 59.82}, {"company": "Happiest Minds", "sector": "IT", "ticker": "HAPPSTMNDS", "yf": "HAPPSTMNDS.NS", "lotSize": 1000.0, "faceValue": 2.0, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "Havells India Ltd", "sector": "Capital Goods", "ticker": "HAVELLS", "yf": "HAVELLS.NS", "lotSize": 500.0, "faceValue": 1.0, "de": 0.03, "cr": 1.8, "roce": 24.4, "eps": 26.94, "pe": 46.1915, "bvps": 500.0, "pb": 2.4888, "dps": 7.342, "divYield": 0.0059, "mcap": 780307334800.0, "cmp": 1244.4, "rs": "Reserve & Surplus have shown growth each year from Fy2014-2024", "high52": 1623.7, "low52": 1142.5}, {"company": "Hero MotoCorp Ltd", "sector": "Automobiles", "ticker": "HEROMOTOCO", "yf": "HEROMOTOCO.NS", "lotSize": 150.0, "faceValue": 2.0, "de": 0.0, "cr": 1.61, "roce": 29.1, "eps": 271.82, "pe": 18.5601, "bvps": 951.0, "pb": 5.3049, "dps": 141.26, "divYield": 0.028, "mcap": 1012253792300.0, "cmp": 5045.0, "rs": "Reserve & Surplus have shown growth each year from Fy2015-2024", "high52": 6388.5, "low52": 3725.0}, {"company": "Hindalco Industries Ltd\n", "sector": "Metals & Mining", "ticker": "HINDALCO", "yf": "HINDALCO.NS", "lotSize": 1400.0, "faceValue": 1.0, "de": 0.21, "cr": 1.72, "roce": 11.3, "eps": 72.28, "pe": 14.4667, "bvps": 513.0, "pb": 2.0383, "dps": 6.0648, "divYield": 0.0058, "mcap": 2338233439043.0, "cmp": 1045.65, "rs": "Reserve & Surplus have shown growth each year from Fy2015-2024 except FY 2015", "high52": 1080.0, "low52": 603.75}, {"company": "Hindustan Aeronautics Ltd", "sector": "Defence", "ticker": "HAL", "yf": "HAL.NS", "lotSize": 150.0, "faceValue": 5.0, "de": 0.0, "cr": 1.68, "roce": 0.389, "eps": 133.03, "pe": 32.4904, "bvps": 465.0, "pb": 9.2951, "dps": 39.7642, "divYield": 0.0092, "mcap": 2888037894689.0, "cmp": 4322.2, "rs": "Reserves and Surplus are fluctuating.", "high52": 5165.0, "low52": 3479.1}, {"company": "Hindustan Copper Ltd", "sector": "Metals & Mining", "ticker": "HINDCOPPER", "yf": "HINDCOPPER.NS", "lotSize": 2650.0, "faceValue": 5.0, "de": 0.08, "cr": 0.84, "roce": 0.18, "eps": 6.82, "pe": 79.4795, "bvps": 24.9, "pb": 21.7691, "dps": 2.2224, "divYield": 0.0041, "mcap": 524223686791.0, "cmp": 542.05, "rs": "Reserves and surplus is Inconsistent.", "high52": 760.05, "low52": 198.0}, {"company": "Hindustan Petroleum Corporation Ltd\n", "sector": "Oil & Gas", "ticker": "HINDPETRO", "yf": "HINDPETRO.NS", "lotSize": 2025.0, "faceValue": 10.0, "de": 2.33, "cr": 0.59, "roce": 21.3, "eps": 72.37, "pe": 5.1479, "bvps": 216.0, "pb": 1.7248, "dps": 21.7569, "divYield": 0.0584, "mcap": 793890401187.0, "cmp": 372.55, "rs": "Reserve & Surplus have shown growth each year from Fy2015-2024 except FY 2015 and 2023", "high52": 508.45, "low52": 316.2}, {"company": "Hindustan Unilever Ltd", "sector": "FMCG", "ticker": "HINDUNILVR", "yf": "HINDUNILVR.NS", "lotSize": 300.0, "faceValue": 1.0, "de": 0.0, "cr": 1.38, "roce": 27.2, "eps": 61.76, "pe": 36.5415, "bvps": 216.0, "pb": 10.4481, "dps": 40.3967, "divYield": 0.0179, "mcap": 5295842413275.0, "cmp": 2256.8, "rs": "Reserve & Surplus have shown growth each year from Fy2014-2024, but from 2021 it increased drastically.", "high52": 2715.44, "low52": 2022.5}, {"company": "Housing & Urban Development Corporation Ltd", "sector": "Misc", "ticker": "HUDCO", "yf": "HUDCO.NS", "lotSize": 2425.0, "faceValue": 10.0, "de": null, "cr": null, "roce": 9.23, "eps": 13.89, "pe": 15.4608, "bvps": 85.5, "pb": 2.5117, "dps": 3.9514, "divYield": 0.0184, "mcap": 429634276500.0, "cmp": 214.75, "rs": "Reserve & Surplus have shown growth each year from Fy2014-2024", "high52": 253.73, "low52": 159.0}, {"company": "Hyundai Motor India Ltd", "sector": "Automobiles", "ticker": "HYUNDAI", "yf": "HYUNDAI.NS", "lotSize": 25, "faceValue": 10, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "IBULHSGFIN", "sector": "Finance", "ticker": "IBULHSGFIN", "yf": "IBULHSGFIN.NS", "lotSize": 4000.0, "faceValue": 2.0, "de": 3.64, "cr": 2.31, "roce": 15.42, "eps": null, "pe": null, "bvps": 377.63, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "From 2018-2022 Company Reserve & Surplus are fluctuating", "high52": null, "low52": null}, {"company": "ICICI Bank Ltd", "sector": "Banking", "ticker": "ICICIBANK", "yf": "ICICIBANK.NS", "lotSize": 700.0, "faceValue": 2.0, "de": 0.0, "cr": null, "roce": 7.6, "eps": 74.77, "pe": 16.8972, "bvps": 365.0, "pb": 3.4614, "dps": 10.1072, "divYield": 0.008, "mcap": 9045608709336.0, "cmp": 1263.4, "rs": "Reserve & Surplus have shown growth each year from Fy2014-2024", "high52": 1500.0, "low52": 1187.6}, {"company": "ICICI Lombard General Insurance Company Ltd", "sector": "Insurance", "ticker": "ICICIGI", "yf": "ICICIGI.NS", "lotSize": 250.0, "faceValue": 10.0, "de": 0.03, "cr": 0.27, "roce": 22.5, "eps": 55.24, "pe": 31.6075, "bvps": 275.0, "pb": 6.3491, "dps": 5.5872, "divYield": 0.0032, "mcap": 870539797223.0, "cmp": 1746.0, "rs": "Reserve & Surplus have shown growth each year from Fy2014-2024", "high52": 2068.7, "low52": 1629.5}, {"company": "ICICI Prudential Life Insurance Company Ltd\n", "sector": "Insurance", "ticker": "ICICIPRULI", "yf": "ICICIPRULI.NS", "lotSize": 750.0, "faceValue": 10.0, "de": 0.13, "cr": 0.93, "roce": 8.75, "eps": 10.94, "pe": 47.0612, "bvps": 80.1, "pb": 6.4276, "dps": 0.4634, "divYield": 0.0009, "mcap": 746692320000.0, "cmp": 514.85, "rs": "Reserve & Surplus have shown growth each year from Fy2014-2024", "high52": 706.8, "low52": 491.45}, {"company": "IDFC First Bank Ltd\n", "sector": "Banking", "ticker": "IDFCFIRSTB", "yf": "IDFCFIRSTB.NS", "lotSize": 7500.0, "faceValue": 10.0, "de": null, "cr": null, "roce": 6.93, "eps": 1.88, "pe": 36.984, "bvps": 45.6, "pb": 1.5248, "dps": 0.0, "divYield": 0.0, "mcap": 509349308775.0, "cmp": 69.53, "rs": "From 2018-2024 Reserve and Surplus is increasing except FY 2020", "high52": 87.0, "low52": 58.08}, {"company": "INDIACEM", "sector": "Cement", "ticker": "INDIACEM", "yf": "INDIACEM.NS", "lotSize": 2900.0, "faceValue": 10.0, "de": 0.52, "cr": 1.15, "roce": -4.19, "eps": -2.17, "pe": -181.7742, "bvps": 188.02, "pb": 2.0979, "dps": null, "divYield": null, "mcap": 121898026176.0, "cmp": 394.45, "rs": "From 2019-2023 REserve and Surplus is fluctuating", "high52": 485.8, "low52": 297.05}, {"company": "INTELLECT", "sector": "IT", "ticker": "INTELLECT", "yf": "INTELLECT.NS", "lotSize": 1000.0, "faceValue": 5.0, "de": 0.0, "cr": 1.55, "roce": 13.13, "eps": 25.65, "pe": 29.0117, "bvps": 98.83, "pb": 7.5296, "dps": null, "divYield": null, "mcap": 103962601090.0, "cmp": 744.15, "rs": "From 2020-2023 Company Reserve & Surplus are increasing", "high52": 1255.0, "low52": 595.2}, {"company": "IRB Infrastructure Developers Ltd\n", "sector": "Misc", "ticker": "IRB", "yf": "IRB.NS", "lotSize": 10250.0, "faceValue": 1.0, "de": null, "cr": null, "roce": 8.96, "eps": 35.86, "pe": 0.5993, "bvps": 23.1, "pb": 0.9303, "dps": 0.1203, "divYield": 0.0056, "mcap": 129635952269.0, "cmp": 21.49, "rs": "Reserve & Surplus have shown growth each year from Fy2014-2024", "high52": 27.14, "low52": 19.15}, {"company": "IRCON International Ltd", "sector": "Infrastructure", "ticker": "IRCON", "yf": "IRCON.NS", "lotSize": 3000, "faceValue": 10, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "IREDA (Indian Renew. Energy)", "sector": "Finance", "ticker": "IREDA", "yf": "IREDA.NS", "lotSize": 3000, "faceValue": 10, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "ITC Ltd\n", "sector": "Diversified", "ticker": "ITC", "yf": "ITC.NS", "lotSize": 1600.0, "faceValue": 1.0, "de": 0.0, "cr": 2.84, "roce": 37.5, "eps": 27.95, "pe": 11.3023, "bvps": 60.2, "pb": 5.2475, "dps": 9.8561, "divYield": 0.0312, "mcap": 3956465421617.0, "cmp": 315.9, "rs": "Reserve & Surplus have shown growth each year from Fy2016-2024 except FY 2021", "high52": 444.2, "low52": 287.0}, {"company": "Indiamart Intermesh Ltd\n", "sector": "Media", "ticker": "INDIAMART", "yf": "INDIAMART.NS", "lotSize": 300.0, "faceValue": 10.0, "de": 0.0, "cr": 2.7, "roce": 23.9, "eps": 100.5, "pe": 21.1403, "bvps": 313.0, "pb": 6.7879, "dps": 18.6965, "divYield": 0.0088, "mcap": 127663617653.0, "cmp": 2124.6, "rs": "From 2016-2024 Reserve and Surplus is Fluctuating year on year.", "high52": 2799.0, "low52": 1925.6}, {"company": "Indian Bank\n", "sector": "Misc", "ticker": "INDIANB", "yf": "INDIANB.NS", "lotSize": 950.0, "faceValue": 10.0, "de": null, "cr": null, "roce": 5.92, "eps": 85.47, "pe": 9.8836, "bvps": 447.0, "pb": 1.8898, "dps": 19.0069, "divYield": 0.0225, "mcap": 1135826549750.0, "cmp": 844.75, "rs": "Reserve & Surplus have shown growth each year from Fy2014-2024", "high52": 1000.9, "low52": 546.1}, {"company": "Indian Energy Exchange Ltd\n", "sector": "Power", "ticker": "IEX", "yf": "IEX.NS", "lotSize": 3750.0, "faceValue": 1.0, "de": 0.0, "cr": 1.26, "roce": 50.0, "eps": 5.54, "pe": 22.5469, "bvps": 11.4, "pb": 10.957, "dps": 1.8362, "divYield": 0.0147, "mcap": 111408100608.0, "cmp": 124.91, "rs": "From 2017-2024 Reserve and Surplus is increasing", "high52": 215.4, "low52": 114.6}, {"company": "Indian Hotels Co Ltd\n", "sector": "Hotels", "ticker": "INDHOTEL", "yf": "INDHOTEL.NS", "lotSize": 1000.0, "faceValue": 1.0, "de": 0.05, "cr": 1.27, "roce": 15.1, "eps": 14.1, "pe": 44.844, "bvps": 71.4, "pb": 8.8557, "dps": 1.3911, "divYield": 0.0022, "mcap": 899893727775.0, "cmp": 632.3, "rs": "From 2018-2024 Reserve and Surplus is increasing", "high52": 821.65, "low52": 565.0}, {"company": "Indian Oil Corporation Ltd\n", "sector": "Oil & Gas", "ticker": "IOC", "yf": "IOC.NS", "lotSize": 4875.0, "faceValue": 10.0, "de": 1.05, "cr": 0.75, "roce": 21.1, "eps": 25.95, "pe": 5.494, "bvps": 128.0, "pb": 1.1138, "dps": 13.3018, "divYield": 0.0933, "mcap": 2010863065810.0, "cmp": 142.57, "rs": "From 2014-2018 Company's Reserve & Surplus are increased then started fluctuating", "high52": 188.96, "low52": 130.22}, {"company": "Indian Overseas Bank", "sector": "Banking", "ticker": "IOB", "yf": "IOB.NS", "lotSize": 20000.0, "faceValue": 10.0, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "Indian Railway Catering & Tourism Corporation Ltd\n", "sector": "IT & Internet", "ticker": "IRCTC", "yf": "IRCTC.NS", "lotSize": 875.0, "faceValue": 2.0, "de": 0.0, "cr": 1.82, "roce": 53.8, "eps": 17.82, "pe": 30.3984, "bvps": 44.0, "pb": 12.3114, "dps": 4.5503, "divYield": 0.0084, "mcap": 433320019531.0, "cmp": 541.7, "rs": "Reserve & Surplus have shown growth each year from Fy2016-2024 except FY 2019", "high52": 820.25, "low52": 492.65}, {"company": "Indian Railway Finance Corporation Ltd\n", "sector": "Misc", "ticker": "IRFC", "yf": "IRFC.NS", "lotSize": 3525.0, "faceValue": 10.0, "de": null, "cr": null, "roce": 5.73, "eps": 5.37, "pe": 19.3333, "bvps": 39.4, "pb": 2.635, "dps": 1.0901, "divYield": 0.0105, "mcap": 1358601248035.0, "cmp": 103.82, "rs": "Reserve & Surplus have shown growth each year from Fy2014-2024 except FY 2017", "high52": 148.95, "low52": 87.0}, {"company": "Indigo Paints", "sector": "Paints", "ticker": "INDIGOPNTS", "yf": "INDIGOPNTS.NS", "lotSize": 500.0, "faceValue": 10.0, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "Indraprastha Gas Ltd\n", "sector": "Oil & Gas", "ticker": "IGL", "yf": "IGL.NS", "lotSize": 1375.0, "faceValue": 2.0, "de": 0.0, "cr": 1.0, "roce": 28.8, "eps": 11.88, "pe": 14.0337, "bvps": 134.0, "pb": 1.2442, "dps": 3.7345, "divYield": 0.0224, "mcap": 233470710790.0, "cmp": 166.72, "rs": "Reserve & Surplus have shown growth each year from Fy2014-2024", "high52": 229.0, "low52": 141.74}, {"company": "Indus Towers Ltd\n", "sector": "Capital Goods", "ticker": "INDUSTOWER", "yf": "INDUSTOWER.NS", "lotSize": 1700.0, "faceValue": 10.0, "de": 0.22, "cr": 1.07, "roce": 22.1, "eps": 27.04, "pe": 15.1516, "bvps": 105.0, "pb": 3.9019, "dps": 0.0, "divYield": 0.0, "mcap": 1080456775192.0, "cmp": 409.7, "rs": "From 2014-2024 Reserve and Surplus Is fluctuating", "high52": 481.5, "low52": 312.55}, {"company": "IndusInd Bank Ltd\n", "sector": "Banking", "ticker": "INDUSINDBK", "yf": "INDUSINDBK.NS", "lotSize": 500.0, "faceValue": 10.0, "de": null, "cr": null, "roce": 7.93, "eps": 11.41, "pe": 80.1139, "bvps": 807.0, "pb": 1.1327, "dps": 15.4483, "divYield": 0.0169, "mcap": 712063938210.0, "cmp": 914.1, "rs": "Reserve & Surplus have shown growth each year from Fy2014-2024", "high52": 968.85, "low52": 710.6}, {"company": "Info Edge India Ltd (Naukri)", "sector": "Misc", "ticker": "NAUKRI", "yf": "NAUKRI.NS", "lotSize": 125.0, "faceValue": 10.0, "de": 0.0, "cr": 2.74, "roce": 5.8, "eps": 20.78, "pe": 47.0115, "bvps": 1118.18, "pb": 0.8737, "dps": null, "divYield": null, "mcap": 632917990600.0, "cmp": 976.9, "rs": "10797.47", "high52": 1550.0, "low52": 930.5}, {"company": "Infosys Ltd\n", "sector": "IT", "ticker": "INFY", "yf": "INFY.NS", "lotSize": 400.0, "faceValue": 5.0, "de": 0.0, "cr": 1.9, "roce": 40.0, "eps": 71.45, "pe": 16.5444, "bvps": 213.0, "pb": 5.5498, "dps": 24.5877, "divYield": 0.0208, "mcap": 4773819830710.0, "cmp": 1182.1, "rs": "From 2014-2024 Reserve and Surplus Is fluctuating", "high52": 1728.0, "low52": 1149.8}, {"company": "Interglobe Aviation Ltd.", "sector": "Aviation", "ticker": "INDIGO", "yf": "INDIGO.NS", "lotSize": 150.0, "faceValue": 10.0, "de": -0.36, "cr": 1.09, "roce": 24.5, "eps": 82.92, "pe": 51.2808, "bvps": -156.72, "pb": -27.1325, "dps": 0.0, "divYield": 0.0, "mcap": 1636444725041.0, "cmp": 4252.2, "rs": "From 2014-2024 Reserve and Surplus is Fluctuating year on year.", "high52": 6232.5, "low52": 1925.6}, {"company": "Ipca Laboratories Ltd\n", "sector": "Pharma", "ticker": "IPCALAB", "yf": "IPCALAB.NS", "lotSize": 650.0, "faceValue": 1.0, "de": 0.24, "cr": 2.91, "roce": 12.8, "eps": 35.86, "pe": 43.4886, "bvps": 264.0, "pb": 5.9072, "dps": 4.0547, "divYield": 0.0026, "mcap": 395649129038.0, "cmp": 1559.5, "rs": "Reserve & Surplus have shown growth each year from Fy2014-2024", "high52": 1624.0, "low52": 1251.6}, {"company": "J K Cements Ltd\n", "sector": "Cement", "ticker": "JKCEMENT", "yf": "JKCEMENT.NS", "lotSize": 125.0, "faceValue": 10.0, "de": 0.68, "cr": 1.24, "roce": 15.8, "eps": 131.93, "pe": 40.0023, "bvps": 715.0, "pb": 7.3811, "dps": 17.4157, "divYield": 0.0033, "mcap": 411146540495.0, "cmp": 5277.5, "rs": "Reserve & Surplus have shown growth each year from Fy2014-2024 Except March 2015 and 2016.", "high52": 7565.5, "low52": 4822.5}, {"company": "JK Paper", "sector": "Misc", "ticker": "JKPAPER", "yf": "JKPAPER.NS", "lotSize": 3000.0, "faceValue": 2.0, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "JSW Energy Ltd\n", "sector": "Misc", "ticker": "JSWENERGY", "yf": "JSWENERGY.NS", "lotSize": 750.0, "faceValue": 10.0, "de": null, "cr": null, "roce": 8.59, "eps": 13.04, "pe": 42.7032, "bvps": 160.0, "pb": 3.4803, "dps": 2.0047, "divYield": 0.0036, "mcap": 976348848387.0, "cmp": 556.85, "rs": "Reserve & Surplus have shown growth each year from Fy2014-2024 Except March 2020", "high52": 585.65, "low52": 427.75}, {"company": "JSW Holdings", "sector": "Finance", "ticker": "JSWHL", "yf": "JSWHL.NS", "lotSize": 150, "faceValue": 10, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "JSW Infrastructure", "sector": "Infrastructure", "ticker": "JSWINFRA", "yf": "JSWINFRA.NS", "lotSize": 4700.0, "faceValue": 2.0, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "JSW Steel Ltd\n", "sector": "Metals & Mining", "ticker": "JSWSTEEL", "yf": "JSWSTEEL.NS", "lotSize": 675.0, "faceValue": 1.0, "de": 0.87, "cr": 1.0, "roce": 13.3, "eps": 30.45, "pe": 41.3071, "bvps": 326.0, "pb": 3.8583, "dps": 9.9366, "divYield": 0.0079, "mcap": 3068451837000.0, "cmp": 1257.8, "rs": "Reserve & Surplus have shown growth each year from Fy2014-2024 Except March 2016", "high52": 1306.8, "low52": 935.0}, {"company": "Jindal SAW Ltd", "sector": "Metals & Mining", "ticker": "JINDALSAW", "yf": "JINDALSAW.NS", "lotSize": 2000, "faceValue": 2, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "Jindal Steel & Power Ltd\n", "sector": "Metals & Mining", "ticker": "JINDALSTEL", "yf": "JINDALSTEL.NS", "lotSize": 625.0, "faceValue": 1.0, "de": 0.29, "cr": 0.94, "roce": 13.2, "eps": 19.65, "pe": 61.5013, "bvps": 464.0, "pb": 2.6045, "dps": 2.5379, "divYield": 0.0021, "mcap": 1230243506859.0, "cmp": 1208.5, "rs": "Reserves and Surplus are Fluctuating.", "high52": 1306.2, "low52": 833.6}, {"company": "Jio Financial Services Ltd\n", "sector": "Misc", "ticker": "JIOFIN", "yf": "JIOFIN.NS", "lotSize": 1650.0, "faceValue": 10.0, "de": null, "cr": null, "roce": 1.55, "eps": 2.46, "pe": 100.0813, "bvps": 216.0, "pb": 1.1398, "dps": 0.0, "divYield": 0.0, "mcap": 1625561203017.0, "cmp": 246.2, "rs": "Reserve & Surplus have shown growth each year from Fy2019-2024", "high52": 338.6, "low52": 223.3}, {"company": "Jubilant Foodworks Ltd\n", "sector": "FMCG", "ticker": "JUBLFOOD", "yf": "JUBLFOOD.NS", "lotSize": 1250.0, "faceValue": 2.0, "de": 0.0, "cr": 0.65, "roce": 11.2, "eps": 6.01, "pe": 79.4759, "bvps": 33.1, "pb": 14.4305, "dps": 0.8598, "divYield": 0.0018, "mcap": 314401286696.0, "cmp": 477.65, "rs": "Reserve & Surplus have shown growth each year from Fy2014-2024 except FY 2019-20", "high52": 727.95, "low52": 408.8}, {"company": "KOTAKBANK", "sector": "Banking", "ticker": "KOTAKBANK", "yf": "KOTAKBANK.NS", "lotSize": 400.0, "faceValue": 5.0, "de": null, "cr": null, "roce": 3.15, "eps": 18.9, "pe": 20.1772, "bvps": 486.43, "pb": 0.784, "dps": null, "divYield": null, "mcap": 3784630313000.0, "cmp": 381.35, "rs": "From 2019-2023 Reserve and Surplus Is increasing", "high52": 453.2, "low52": 345.5}, {"company": "KPIT Technologies", "sector": "IT", "ticker": "KPITTECH", "yf": "KPITTECH.NS", "lotSize": 700.0, "faceValue": 2.0, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "Kalpataru Projects", "sector": "Infrastructure", "ticker": "KPIL", "yf": "KPIL.NS", "lotSize": 500.0, "faceValue": 2.0, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "Kalyan Jewellers India Ltd\n", "sector": "Misc", "ticker": "KALYANKJIL", "yf": "KALYANKJIL.NS", "lotSize": null, "faceValue": null, "de": null, "cr": null, "roce": 14.0, "eps": 10.93, "pe": 37.2919, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": 407.6, "rs": "nan", "high52": 617.7, "low52": 347.5}, {"company": "Kansai Nerolac", "sector": "Paints", "ticker": "KANSAINER", "yf": "KANSAINER.NS", "lotSize": 2000.0, "faceValue": 1.0, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "Karur Vysya Bank", "sector": "Banking", "ticker": "KARURVYSYA", "yf": "KARURVYSYA.NS", "lotSize": 3000.0, "faceValue": 2.0, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "Kaynes Technology", "sector": "Capital Goods", "ticker": "KAYNES", "yf": "KAYNES.NS", "lotSize": 225.0, "faceValue": 10.0, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "L&TFH", "sector": "NBFC", "ticker": "L&TFH", "yf": "L%26TFH.NS", "lotSize": 8924.0, "faceValue": 10.0, "de": 0.01, "cr": 483.57, "roce": 2.87, "eps": null, "pe": null, "bvps": 79.72, "pb": 3.5204, "dps": null, "divYield": null, "mcap": null, "cmp": 280.65, "rs": "From 2020-2022 Reserve and Surplus Is increasing", "high52": 329.45, "low52": 159.66}, {"company": "LALPATHLAB", "sector": "Healthcare", "ticker": "LALPATHLAB", "yf": "LALPATHLAB.NS", "lotSize": 250.0, "faceValue": 10.0, "de": 0.14, "cr": 1.87, "roce": 22.52, "eps": 31.68, "pe": 43.5006, "bvps": 177.81, "pb": 7.7504, "dps": null, "divYield": null, "mcap": 230162065756.0, "cmp": 1378.1, "rs": "From 2019-2023 Reserve and Surplus Is increasing", "high52": 1770.0, "low52": 1272.6}, {"company": "LAURUSLABS", "sector": "Pharma", "ticker": "LAURUSLABS", "yf": "LAURUSLABS.NS", "lotSize": 1100.0, "faceValue": 2.0, "de": 0.41, "cr": 1.51, "roce": 24.67, "eps": 15.61, "pe": 70.0064, "bvps": 75.16, "pb": 14.5396, "dps": null, "divYield": null, "mcap": 588065711810.0, "cmp": 1092.8, "rs": "From 2019-2023 Reserve and Surplus Is increasing", "high52": 1144.85, "low52": 572.25}, {"company": "LICHSGFIN", "sector": "Finance", "ticker": "LICHSGFIN", "yf": "LICHSGFIN.NS", "lotSize": 2000.0, "faceValue": 2.0, "de": 9.07, "cr": 3.07, "roce": 9.82, "eps": 99.72, "pe": 5.533, "bvps": 450.02, "pb": 1.2261, "dps": null, "divYield": null, "mcap": 303827284620.0, "cmp": 551.75, "rs": "From 2018-2022 Reserve and Surplus Is increasing", "high52": 646.5, "low52": 458.9}, {"company": "LT", "sector": "Capital Goods", "ticker": "LT", "yf": "LT.NS", "lotSize": 300.0, "faceValue": 2.0, "de": 0.25, "cr": 1.37, "roce": 14.63, "eps": 118.13, "pe": 33.8153, "bvps": 598.72, "pb": 6.6719, "dps": null, "divYield": null, "mcap": 5493311332769.0, "cmp": 3994.6, "rs": "From 2019-2023 Reserve and Surplus Is increasing", "high52": 4440.0, "low52": 3284.1}, {"company": "LTIM", "sector": "IT", "ticker": "LTIM", "yf": "LTIM.NS", "lotSize": 150.0, "faceValue": 1.0, "de": 0.0, "cr": 3.23, "roce": 33.03, "eps": null, "pe": null, "bvps": 298.55, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "From 2019-2023 Reserve and Surplus Is increasing", "high52": null, "low52": null}, {"company": "LTTS", "sector": "Capital Goods", "ticker": "LTTS", "yf": "LTTS.NS", "lotSize": 200.0, "faceValue": 2.0, "de": 0.07, "cr": 3.49, "roce": 31.34, "eps": 115.72, "pe": 30.566, "bvps": 394.02, "pb": 8.977, "dps": null, "divYield": null, "mcap": 372876326987.0, "cmp": 3537.1, "rs": "From 2019-2023 Reserve and Surplus Is increasing", "high52": 4726.0, "low52": 3010.0}, {"company": "LUPIN", "sector": "Pharma", "ticker": "LUPIN", "yf": "LUPIN.NS", "lotSize": 850.0, "faceValue": 2.0, "de": 0.03, "cr": 2.09, "roce": 3.28, "eps": 108.62, "pe": 21.1554, "bvps": 265.24, "pb": 8.6635, "dps": null, "divYield": null, "mcap": 1049454164950.0, "cmp": 2297.9, "rs": "From 2019-2023 Reserve and Surplus are fluctuating", "high52": 2381.0, "low52": 1836.8}, {"company": "LatentView Analytics", "sector": "IT", "ticker": "LATENTVIEW", "yf": "LATENTVIEW.NS", "lotSize": 2000, "faceValue": 1, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "Lemon Tree Hotels", "sector": "Hotels", "ticker": "LEMONTREE", "yf": "LEMONTREE.NS", "lotSize": 5400.0, "faceValue": 10.0, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "M&M", "sector": "Automobiles", "ticker": "M&M", "yf": "M%26M.NS", "lotSize": 700.0, "faceValue": 5.0, "de": 0.12, "cr": 1.33, "roce": 19.76, "eps": 140.08, "pe": 21.9703, "bvps": 539.97, "pb": 5.6996, "dps": null, "divYield": null, "mcap": 3699547722000.0, "cmp": 3077.6, "rs": "From 2020-2023 Reserve and Surplus Is increasing", "high52": 3839.9, "low52": 2887.0}, {"company": "M&MFIN", "sector": "NBFC", "ticker": "M&MFIN", "yf": "M%26MFIN.NS", "lotSize": 4000.0, "faceValue": 2.0, "de": 3.57, "cr": 2.48, "roce": 11.52, "eps": 20.88, "pe": 15.1317, "bvps": 153.18, "pb": 2.0626, "dps": null, "divYield": null, "mcap": 439026759712.0, "cmp": 315.95, "rs": "From 2018-2022 Reserve and Surplus Is increasing", "high52": 412.2, "low52": 236.23}, {"company": "MANAPPURAM", "sector": "NBFC", "ticker": "MANAPPURAM", "yf": "MANAPPURAM.NS", "lotSize": 6000.0, "faceValue": 2.0, "de": 2.26, "cr": 2.34, "roce": 19.75, "eps": 4.7, "pe": 62.383, "bvps": 116.38, "pb": 2.5193, "dps": null, "divYield": null, "mcap": 247109941750.0, "cmp": 293.2, "rs": "From 2018-2022 Reserve and Surplus Is increasing", "high52": 321.6, "low52": 226.02}, {"company": "MARICO", "sector": "FMCG", "ticker": "MARICO", "yf": "MARICO.NS", "lotSize": 1200.0, "faceValue": 1.0, "de": 0.02, "cr": 2.18, "roce": 40.55, "eps": 13.22, "pe": 58.4985, "bvps": 26.9, "pb": 28.7491, "dps": null, "divYield": null, "mcap": 1004255958067.0, "cmp": 773.35, "rs": "From 2019-2023 Reserve and Surplus Is increasing", "high52": 813.5, "low52": 680.3}, {"company": "MARUTI", "sector": "Automobiles", "ticker": "MARUTI", "yf": "MARUTI.NS", "lotSize": 100.0, "faceValue": 5.0, "de": 0.02, "cr": 0.58, "roce": 16.4, "eps": 466.9, "pe": 28.0681, "bvps": 2045.53, "pb": 6.4067, "dps": null, "divYield": null, "mcap": 4119157450000.0, "cmp": 13105.0, "rs": "From 2019-2023 Reserve and Surplus Is increasing", "high52": 17370.0, "low52": 11800.0}, {"company": "MRF Ltd", "sector": "Auto Ancillaries", "ticker": "MRF", "yf": "MRF.NS", "lotSize": 5.0, "faceValue": 10.0, "de": 0.14, "cr": 1.22, "roce": 16.1, "eps": 5258.12, "pe": 24.7893, "bvps": 41659.0, "pb": 3.1289, "dps": 234.621, "divYield": 0.0018, "mcap": 552387539790.0, "cmp": 130345.0, "rs": "Reserve & Surplus have shown growth each year from Fy2014-2024 except FY 2023-24", "high52": 163600.0, "low52": 123455.0}, {"company": "Macrotech Developers (Lodha)", "sector": "Real Estate", "ticker": "LODHA", "yf": "LODHA.NS", "lotSize": 1000, "faceValue": 10, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "Mahanagar Gas Limited (Standalone)", "sector": "Oil & Gas", "ticker": "MGL", "yf": "MGL.NS", "lotSize": 800.0, "faceValue": 10.0, "de": 0.0, "cr": 1.29, "roce": 23.81, "eps": 96.93, "pe": 11.694, "bvps": 418.54, "pb": 2.7082, "dps": null, "divYield": null, "mcap": 111964579625.0, "cmp": 1133.5, "rs": "4035.44", "high52": 1586.9, "low52": 900.0}, {"company": "Max Financial Services Ltd", "sector": "Finance", "ticker": "MFSL", "yf": "MFSL.NS", "lotSize": 800.0, "faceValue": 2.0, "de": 0.0, "cr": 1.03, "roce": 9.77, "eps": 4.13, "pe": 382.9298, "bvps": 150.0, "pb": 10.5433, "dps": 0.0, "divYield": 0.0, "mcap": 545798898050.0, "cmp": 1581.5, "rs": "Reserves and Surplus are Fluctuating.", "high52": 1892.5, "low52": 1248.6}, {"company": "Max Healthcare", "sector": "Healthcare", "ticker": "MAXHEALTH", "yf": "MAXHEALTH.NS", "lotSize": 651.0, "faceValue": 10.0, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "Mazagon Dock Shipbuilders", "sector": "Defence", "ticker": "MAZDOCK", "yf": "MAZDOCK.NS", "lotSize": 100, "faceValue": 5, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "Medanta (Global Health)", "sector": "Healthcare", "ticker": "MEDANTA", "yf": "MEDANTA.NS", "lotSize": 750.0, "faceValue": 10.0, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "Metropolis Healthcare", "sector": "Healthcare", "ticker": "METROPOLIS", "yf": "METROPOLIS.NS", "lotSize": 400.0, "faceValue": 2.0, "de": 0.08, "cr": 1.14, "roce": 15.8, "eps": 8.1, "pe": 59.2593, "bvps": 231.0, "pb": 2.0779, "dps": 1.056, "divYield": 0.0022, "mcap": 99423996004.0, "cmp": 480.0, "rs": "Reserve & Surplus have shown growth each year from Fy2014-2024 except FY 2016-17", "high52": 565.75, "low52": 397.08}, {"company": "Motilal Oswal Financial Svcs", "sector": "Finance", "ticker": "MOTILALOFS", "yf": "MOTILALOFS.NS", "lotSize": 400, "faceValue": 1, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "Mphasis Limited", "sector": "IT", "ticker": "MPHASIS", "yf": "MPHASIS.NS", "lotSize": 275.0, "faceValue": 10.0, "de": 0.03, "cr": 2.13, "roce": 25.76, "eps": 94.29, "pe": 24.9019, "bvps": 421.17, "pb": 5.5749, "dps": null, "divYield": null, "mcap": 441876880575.0, "cmp": 2348.0, "rs": "7746.43", "high52": 3037.2, "low52": 2013.0}, {"company": "Multi Commodity Exchange Of India Ltd", "sector": "Finance", "ticker": "MCX", "yf": "MCX.NS", "lotSize": 100.0, "faceValue": 10.0, "de": 0.09, "cr": 1.81, "roce": 7.15, "eps": 19.92, "pe": 148.74, "bvps": 311.0, "pb": 9.527, "dps": 4.1481, "divYield": 0.0014, "mcap": 754837633627.0, "cmp": 2962.9, "rs": "Reserve & Surplus have shown growth each year from Fy2015-2024 except March 2019 and March 2024", "high52": 2985.1, "low52": 1120.0}, {"company": "Muthoot Finance Limited", "sector": "Finance", "ticker": "MUTHOOTFIN", "yf": "MUTHOOTFIN.NS", "lotSize": 550.0, "faceValue": 10.0, "de": 2.9, "cr": 1.41, "roce": null, "eps": 217.15, "pe": 15.7794, "bvps": 467.8, "pb": 7.3247, "dps": null, "divYield": null, "mcap": 1375471267055.0, "cmp": 3426.5, "rs": "18378.21", "high52": 4149.5, "low52": 2027.0}, {"company": "NHPC Ltd", "sector": "Power", "ticker": "NHPC", "yf": "NHPC.NS", "lotSize": 6000, "faceValue": 10, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "NMDC Ltd.", "sector": "Metals & Mining", "ticker": "NMDC", "yf": "NMDC.NS", "lotSize": 4500.0, "faceValue": 1.0, "de": 0.02, "cr": 3.75, "roce": 27.27, "eps": 7.85, "pe": 11.4777, "bvps": 119.43, "pb": 0.7544, "dps": null, "divYield": null, "mcap": 793187320537.0, "cmp": 90.1, "rs": "22039.24", "high52": 92.77, "low52": 62.0}, {"company": "NTPC Ltd.", "sector": "Power", "ticker": "NTPC", "yf": "NTPC.NS", "lotSize": 5700.0, "faceValue": 10.0, "de": 1.33, "cr": 1.04, "roce": 11.02, "eps": 24.93, "pe": 15.9787, "bvps": 143.49, "pb": 2.7762, "dps": null, "divYield": null, "mcap": 3857653802250.0, "cmp": 398.35, "rs": "1,37,326.50", "high52": 414.4, "low52": 315.55}, {"company": "Narayana Hrudayalaya", "sector": "Healthcare", "ticker": "NH", "yf": "NH.NS", "lotSize": 975.0, "faceValue": 10.0, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "National Aluminium Company Limited", "sector": "Metals & Mining", "ticker": "NATIONALUM", "yf": "NATIONALUM.NS", "lotSize": 7500.0, "faceValue": 5.0, "de": 0.0, "cr": 1.47, "roce": 14.81, "eps": 33.44, "pe": 12.4043, "bvps": 71.47, "pb": 5.8038, "dps": null, "divYield": null, "mcap": 761559032940.0, "cmp": 414.8, "rs": "12208.05", "high52": 445.15, "low52": 149.0}, {"company": "Navin Fluorine International Ltd", "sector": "Chemicals", "ticker": "NAVINFLUOR", "yf": "NAVINFLUOR.NS", "lotSize": 175.0, "faceValue": 2.0, "de": 0.39, "cr": 3.99, "roce": 10.4, "eps": 107.85, "pe": 63.2592, "bvps": 498.0, "pb": 13.6998, "dps": 21.832, "divYield": 0.0032, "mcap": 349924105080.0, "cmp": 6822.5, "rs": "Reserve & Surplus have shown growth each year from Fy2014-2024.", "high52": 7200.0, "low52": 4189.4}, {"company": "Nazara Technologies", "sector": "IT & Internet", "ticker": "NAZARA", "yf": "NAZARA.NS", "lotSize": 500.0, "faceValue": 4.0, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "Nestle India Ltd", "sector": "FMCG", "ticker": "NESTLEIND", "yf": "NESTLEIND.NS", "lotSize": 500.0, "faceValue": 10.0, "de": 0.01, "cr": 0.74, "roce": 137.01, "eps": 18.15, "pe": 80.0441, "bvps": 255.06, "pb": 5.6959, "dps": null, "divYield": null, "mcap": 2802418830355.0, "cmp": 1452.8, "rs": "2362.75", "high52": 1470.0, "low52": 1084.7}, {"company": "Nuvoco Vistas Corp", "sector": "Cement", "ticker": "NUVOCO", "yf": "NUVOCO.NS", "lotSize": 1500, "faceValue": 10, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "Nykaa (FSN E-Commerce)", "sector": "Retail", "ticker": "FSN", "yf": "FSN.NS", "lotSize": 3700.0, "faceValue": 1.0, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "Oberoi Realty Ltd.", "sector": "Real Estate", "ticker": "OBEROIRLTY", "yf": "OBEROIRLTY.NS", "lotSize": 350.0, "faceValue": 10.0, "de": 0.62, "cr": 3.18, "roce": 15.2, "eps": 62.02, "pe": 26.851, "bvps": 407.0, "pb": 4.0916, "dps": 7.1608, "divYield": 0.0043, "mcap": 604597755914.0, "cmp": 1665.3, "rs": "Reserve & Surplus have shown growth each year from Fy2014-2024.", "high52": 2005.0, "low52": 1391.2}, {"company": "Oil and Natural Gas Corporation Ltd.", "sector": "Oil & Gas", "ticker": "ONGC", "yf": "ONGC.NS", "lotSize": 3850.0, "faceValue": 5.0, "de": 0.03, "cr": 1.29, "roce": 19.12, "eps": 30.15, "pe": 9.9585, "bvps": 162.52, "pb": 1.8475, "dps": null, "divYield": null, "mcap": 3772194036283.0, "cmp": 300.25, "rs": "2,51,555.70", "high52": 307.5, "low52": 228.45}, {"company": "Olectra Greentech Ltd", "sector": "Capital Goods", "ticker": "OLECTRA", "yf": "OLECTRA.NS", "lotSize": 750, "faceValue": 10, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "One97 (Paytm)", "sector": "IT & Internet", "ticker": "PAYTM", "yf": "PAYTM.NS", "lotSize": 2000.0, "faceValue": 1.0, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "Oracle Financial Services Software Ltd.", "sector": "IT", "ticker": "OFSS", "yf": "OFSS.NS", "lotSize": 50.0, "faceValue": 5.0, "de": 0.0, "cr": 10.1, "roce": 39.5, "eps": 302.11, "pe": 32.3889, "bvps": 814.0, "pb": 12.0209, "dps": 240.711, "divYield": 0.0246, "mcap": 852698960685.0, "cmp": 9785.0, "rs": "Reserves and Surplus are Fluctuating", "high52": 9950.0, "low52": 6234.5}, {"company": "PB Fintech (PolicyBzr)", "sector": "Insurance", "ticker": "POLICYBZR", "yf": "POLICYBZR.NS", "lotSize": 1500.0, "faceValue": 2.0, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "PCBL Ltd", "sector": "Chemicals", "ticker": "PCBL", "yf": "PCBL.NS", "lotSize": 3000, "faceValue": 1, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "PI Industries Ltd", "sector": "Chemicals", "ticker": "PIIND", "yf": "PIIND.NS", "lotSize": 125.0, "faceValue": 1.0, "de": 0.0, "cr": 4.7, "roce": 24.0, "eps": 95.64, "pe": 31.6437, "bvps": 629.0, "pb": 4.8114, "dps": 13.0135, "divYield": 0.0043, "mcap": 459175253167.0, "cmp": 3026.4, "rs": "Reserve & Surplus have shown growth each year from Fy2014-2024.", "high52": 4330.0, "low52": 2700.0}, {"company": "PNB Housing Finance", "sector": "Finance", "ticker": "PNBHOUSING", "yf": "PNBHOUSING.NS", "lotSize": 2000, "faceValue": 10, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "PVR INOX Ltd", "sector": "Media", "ticker": "PVRINOX", "yf": "PVRINOX.NS", "lotSize": 407.0, "faceValue": 10.0, "de": 0.24, "cr": 0.87, "roce": 4.07, "eps": null, "pe": null, "bvps": 143.54, "pb": 7.4606, "dps": null, "divYield": null, "mcap": 103281800000.0, "cmp": 1070.9, "rs": "Increasing", "high52": 1249.7, "low52": 907.4}, {"company": "Page Industries Ltd.", "sector": "Textiles", "ticker": "PAGEIND", "yf": "PAGEIND.NS", "lotSize": 15.0, "faceValue": 10.0, "de": 0.18, "cr": 1.31, "roce": 45.0, "eps": 671.61, "pe": 54.2428, "bvps": 1336.0, "pb": 27.268, "dps": 437.16, "divYield": 0.012, "mcap": 406447022800.0, "cmp": 36430.0, "rs": "Reserve & Surplus have shown growth each year from Fy2014-2024 except march 2019.", "high52": 50590.0, "low52": 29805.0}, {"company": "Persistent Systems Ltd.", "sector": "IT", "ticker": "PERSISTENT", "yf": "PERSISTENT.NS", "lotSize": 175.0, "faceValue": 10.0, "de": 0.11, "cr": 2.92, "roce": 27.72, "eps": 118.87, "pe": 40.4762, "bvps": 518.82, "pb": 9.2737, "dps": null, "divYield": null, "mcap": 750877462713.0, "cmp": 4811.4, "rs": "3888.65", "high52": 6599.0, "low52": 4449.1}, {"company": "Petronet LNG Ltd.", "sector": "Oil & Gas", "ticker": "PETRONET", "yf": "PETRONET.NS", "lotSize": 3000.0, "faceValue": 10.0, "de": 0.0, "cr": 1.53, "roce": 31.23, "eps": 24.24, "pe": 11.37, "bvps": 101.76, "pb": 2.7084, "dps": null, "divYield": null, "mcap": 413624724250.0, "cmp": 275.61, "rs": "13764.56", "high52": 326.5, "low52": 235.35}, {"company": "Phoenix Mills Ltd", "sector": "Real Estate", "ticker": "PHOENIXLTD", "yf": "PHOENIXLTD.NS", "lotSize": 500.0, "faceValue": 2.0, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "Pidilite Industries Ltd.", "sector": "Chemicals", "ticker": "PIDILITIND", "yf": "PIDILITIND.NS", "lotSize": 250.0, "faceValue": 1.0, "de": 0.0298, "cr": 1.34, "roce": 23.86, "eps": 22.48, "pe": 60.8986, "bvps": 129.93, "pb": 10.5364, "dps": null, "divYield": null, "mcap": 695684828625.0, "cmp": 1369.0, "rs": "7161.45", "high52": 1574.95, "low52": 1259.0}, {"company": "Piramal Enterprises Ltd.", "sector": "NBFC", "ticker": "PEL", "yf": "PEL.NS", "lotSize": 750.0, "faceValue": 2.0, "de": 0.25, "cr": 1.53, "roce": 3.91, "eps": null, "pe": null, "bvps": 1194.0, "pb": null, "dps": null, "divYield": 0.0099, "mcap": null, "cmp": null, "rs": "Reserve & Surplus have shown growth each year from Fy2015-2022 then starts decreasing.", "high52": null, "low52": null}, {"company": "Piramal Pharma Ltd", "sector": "Pharma", "ticker": "PPLPHARMA", "yf": "PPLPHARMA.NS", "lotSize": 2000, "faceValue": 10, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "Polycab India Ltd", "sector": "Capital Goods", "ticker": "POLYCAB", "yf": "POLYCAB.NS", "lotSize": 125.0, "faceValue": 10.0, "de": 0.02, "cr": 2.63, "roce": 31.3, "eps": 173.97, "pe": 46.1171, "bvps": 571.0, "pb": 14.0508, "dps": 36.9058, "divYield": 0.0046, "mcap": 1210027412700.0, "cmp": 8023.0, "rs": "Reserve & Surplus have shown growth each year from Fy2015-2024", "high52": 8722.0, "low52": 5445.5}, {"company": "Power Finance Corporation Ltd", "sector": "Finance", "ticker": "PFC", "yf": "PFC.NS", "lotSize": 6200.0, "faceValue": 10.0, "de": 5.52, "cr": 2.05, "roce": 9.02, "eps": 76.42, "pe": 5.8892, "bvps": 331.68, "pb": 1.3569, "dps": null, "divYield": null, "mcap": 1483754100500.0, "cmp": 450.05, "rs": "69036.16", "high52": 486.5, "low52": 329.9}, {"company": "Power Grid Corporation of India Ltd.", "sector": "Power", "ticker": "POWERGRID", "yf": "POWERGRID.NS", "lotSize": 2700.0, "faceValue": 10.0, "de": 1.52, "cr": 1.24, "roce": 12.22, "eps": 16.7, "pe": 18.9641, "bvps": 119.01, "pb": 2.6611, "dps": null, "divYield": null, "mcap": 2945891069097.0, "cmp": 316.7, "rs": "Increasing", "high52": 324.95, "low52": 250.0}, {"company": "Prestige Estates", "sector": "Real Estate", "ticker": "PRESTIGE", "yf": "PRESTIGE.NS", "lotSize": 600.0, "faceValue": 10.0, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "Punjab & Sind Bank", "sector": "Banking", "ticker": "PSB", "yf": "PSB.NS", "lotSize": 20000.0, "faceValue": 10.0, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "Punjab National Bank", "sector": "Banking", "ticker": "PNB", "yf": "PNB.NS", "lotSize": 16000.0, "faceValue": 2.0, "de": 12.44, "cr": 5.2, "roce": 1.56, "eps": 15.47, "pe": 7.0517, "bvps": 85.26, "pb": 1.2795, "dps": null, "divYield": null, "mcap": 1253879736463.0, "cmp": 109.09, "rs": "Increasing", "high52": 135.15, "low52": 89.45}, {"company": "RBL Bank Ltd", "sector": "Banking", "ticker": "RBLBANK", "yf": "RBLBANK.NS", "lotSize": 5000.0, "faceValue": 10.0, "de": 7.2, "cr": null, "roce": 1.97, "eps": 14.09, "pe": 23.8999, "bvps": 208.5, "pb": 1.6151, "dps": null, "divYield": null, "mcap": 208227813450.0, "cmp": 336.75, "rs": "Increasing", "high52": 345.65, "low52": 188.1}, {"company": "REC Ltd", "sector": "Finance", "ticker": "RECLTD", "yf": "RECLTD.NS", "lotSize": 8000.0, "faceValue": 10.0, "de": 6.56, "cr": 3.06, "roce": 12.41, "eps": 61.81, "pe": 5.7539, "bvps": 192.75, "pb": 1.8451, "dps": null, "divYield": null, "mcap": 936901067056.0, "cmp": 355.65, "rs": "Increasing", "high52": 432.45, "low52": 304.05}, {"company": "RHI Magnesita", "sector": "Chemicals", "ticker": "RHIM", "yf": "RHIM.NS", "lotSize": 600.0, "faceValue": 10.0, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "Rail Vikas Nigam Ltd", "sector": "Infrastructure", "ticker": "RVNL", "yf": "RVNL.NS", "lotSize": 6000, "faceValue": 10, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "RailTel Corporation of India", "sector": "Telecom", "ticker": "RAILTEL", "yf": "RAILTEL.NS", "lotSize": 3000, "faceValue": 10, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "Rain Industries Ltd.", "sector": "Chemicals", "ticker": "RAIN", "yf": "RAIN.NS", "lotSize": 3500.0, "faceValue": 2.0, "de": 0.18, "cr": 0.67, "roce": 4.46, "eps": 1.26, "pe": 101.0952, "bvps": 261.13, "pb": 0.4878, "dps": null, "divYield": null, "mcap": 42816795906.0, "cmp": 127.38, "rs": "Increasing", "high52": 176.0, "low52": 99.9}, {"company": "Reliance Industries Ltd", "sector": "Oil & Gas", "ticker": "RELIANCE", "yf": "RELIANCE.NS", "lotSize": 250.0, "faceValue": 10.0, "de": 0.38, "cr": 1.11, "roce": 8.68, "eps": 59.69, "pe": 23.7544, "bvps": 1334.73, "pb": 1.0623, "dps": null, "divYield": null, "mcap": 19187774617384.0, "cmp": 1417.9, "rs": "Increasing", "high52": 1611.8, "low52": 1290.0}, {"company": "SBI Cards & Payment Services Ltd", "sector": "Finance", "ticker": "SBICARD", "yf": "SBICARD.NS", "lotSize": 800.0, "faceValue": 10.0, "de": 2.96, "cr": 1.28, "roce": 35.68, "eps": 22.77, "pe": 28.2828, "bvps": 81.96, "pb": 7.8575, "dps": null, "divYield": null, "mcap": 612182087793.0, "cmp": 644.0, "rs": "Increasing", "high52": 1027.25, "low52": 615.5}, {"company": "SBI Life Insurance Company Ltd", "sector": "Insurance", "ticker": "SBILIFE", "yf": "SBILIFE.NS", "lotSize": 750.0, "faceValue": 10.0, "de": 0.0, "cr": 29.29, "roce": 0.96, "eps": 24.62, "pe": 73.026, "bvps": 116.12, "pb": 15.4831, "dps": null, "divYield": null, "mcap": 1803358846579.0, "cmp": 1797.9, "rs": "Increasing", "high52": 2132.0, "low52": 1693.1}, {"company": "SJVN Ltd", "sector": "Power", "ticker": "SJVN", "yf": "SJVN.NS", "lotSize": 10000, "faceValue": 10, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "SRF Ltd", "sector": "Diversified", "ticker": "SRF", "yf": "SRF.NS", "lotSize": 375.0, "faceValue": 10.0, "de": 0.41, "cr": 1.18, "roce": 23.83, "eps": 60.02, "pe": 41.7527, "bvps": 361.87, "pb": 6.9251, "dps": null, "divYield": null, "mcap": 742930052590.0, "cmp": 2506.0, "rs": "Increasing", "high52": 3325.0, "low52": 2355.0}, {"company": "Samvardhana Motherson International Ltd", "sector": "Auto Ancillaries", "ticker": "MOTHERSON", "yf": "MOTHERSON.NS", "lotSize": 6750.0, "faceValue": 1.0, "de": 0.54, "cr": 0.97, "roce": 9.69, "eps": 3.12, "pe": 38.4872, "bvps": 17.63, "pb": 6.8111, "dps": null, "divYield": null, "mcap": 1264168858841.0, "cmp": 120.08, "rs": "21773.9", "high52": 136.15, "low52": 87.08}, {"company": "Sapphire Foods", "sector": "Hotels", "ticker": "SAPPHIRE", "yf": "SAPPHIRE.NS", "lotSize": 1050.0, "faceValue": 10.0, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "Senco Gold", "sector": "Retail", "ticker": "SENCO", "yf": "SENCO.NS", "lotSize": 1000.0, "faceValue": 10.0, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "Shree Cements Ltd.", "sector": "Cement", "ticker": "SHREECEM", "yf": "SHREECEM.NS", "lotSize": 25.0, "faceValue": 10.0, "de": 0.14, "cr": 1.33, "roce": 8.96, "eps": 496.7, "pe": 48.4498, "bvps": 5176.43, "pb": 4.649, "dps": null, "divYield": null, "mcap": 862939704618.0, "cmp": 24065.0, "rs": "Increasing", "high52": 32490.0, "low52": 22550.0}, {"company": "Shriram Finance Ltd", "sector": "NBFC", "ticker": "SHRIRAMFIN", "yf": "SHRIRAMFIN.NS", "lotSize": 600.0, "faceValue": 10.0, "de": 4.39, "cr": 2.92, "roce": 14.09, "eps": 53.25, "pe": 17.5117, "bvps": 860.23, "pb": 1.084, "dps": null, "divYield": null, "mcap": 1748719280748.0, "cmp": 932.5, "rs": "Increasing", "high52": 1108.0, "low52": 566.5}, {"company": "Siemens Ltd", "sector": "Capital Goods", "ticker": "SIEMENS", "yf": "SIEMENS.NS", "lotSize": 275.0, "faceValue": 2.0, "de": 0.0, "cr": 1.91, "roce": 14.42, "eps": 49.68, "pe": 76.3647, "bvps": 326.23, "pb": 11.6292, "dps": null, "divYield": null, "mcap": 1355679536788.0, "cmp": 3793.8, "rs": "Increasing", "high52": 3901.0, "low52": 2788.3}, {"company": "Sobha Ltd", "sector": "Real Estate", "ticker": "SOBHA", "yf": "SOBHA.NS", "lotSize": 1000.0, "faceValue": 2.0, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "Sona BLW Precision", "sector": "Auto Ancillaries", "ticker": "SONACOMS", "yf": "SONACOMS.NS", "lotSize": 1500, "faceValue": 10, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "South Indian Bank", "sector": "Banking", "ticker": "SOUTHBANK", "yf": "SOUTHBANK.NS", "lotSize": 20000.0, "faceValue": 1.0, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "State Bank of India", "sector": "Banking", "ticker": "SBIN", "yf": "SBIN.NS", "lotSize": 1500.0, "faceValue": 1.0, "de": 1.33, "cr": 0.9, "roce": 1.74, "eps": 91.62, "pe": 11.6825, "bvps": 378.57, "pb": 2.8274, "dps": null, "divYield": null, "mcap": 9867064384586.0, "cmp": 1070.35, "rs": "Increasing", "high52": 1234.7, "low52": 755.5}, {"company": "Steel Authority of India Ltd", "sector": "Metals & Mining", "ticker": "SAIL", "yf": "SAIL.NS", "lotSize": 8000.0, "faceValue": 10.0, "de": 0.49, "cr": 0.77, "roce": 5.63, "eps": 6.76, "pe": 27.0133, "bvps": 132.54, "pb": 1.3778, "dps": null, "divYield": null, "mcap": 756629539247.0, "cmp": 182.61, "rs": "Increasing", "high52": 189.1, "low52": 106.25}, {"company": "Sterling Wilson Renewable", "sector": "Power", "ticker": "SWSOLAR", "yf": "SWSOLAR.NS", "lotSize": 1000, "faceValue": 1, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "Sula Vineyards", "sector": "FMCG", "ticker": "SULA", "yf": "SULA.NS", "lotSize": 1000.0, "faceValue": 2.0, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "Sumitomo Chemical India", "sector": "Chemicals", "ticker": "SUMICHEM", "yf": "SUMICHEM.NS", "lotSize": 2000, "faceValue": 10, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "Sun Pharmaceutical Industries Ltd", "sector": "Pharma", "ticker": "SUNPHARMA", "yf": "SUNPHARMA.NS", "lotSize": 700.0, "faceValue": 1.0, "de": 0.32, "cr": 1.97, "roce": 16.02, "eps": 45.45, "pe": 39.1991, "bvps": 247.22, "pb": 7.2065, "dps": null, "divYield": null, "mcap": 4276589330653.0, "cmp": 1781.6, "rs": "increasing", "high52": 1851.2, "low52": 1548.0}, {"company": "Sun TV Network Ltd", "sector": "Media", "ticker": "SUNTV", "yf": "SUNTV.NS", "lotSize": 750.0, "faceValue": 5.0, "de": 0.0, "cr": 7.23, "roce": 26.2, "eps": 40.06, "pe": 15.1098, "bvps": 287.0, "pb": 2.1091, "dps": 15.4352, "divYield": 0.0255, "mcap": 238342300789.0, "cmp": 605.3, "rs": "Reserve & Surplus have shown growth each year from Fy2014-2024", "high52": 660.7, "low52": 480.2}, {"company": "Sundram Fasteners", "sector": "Auto Ancillaries", "ticker": "SUNDRMFAST", "yf": "SUNDRMFAST.NS", "lotSize": 1000, "faceValue": 1, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "Syngene International Ltd", "sector": "Healthcare", "ticker": "SYNGENE", "yf": "SYNGENE.NS", "lotSize": 1000.0, "faceValue": 0.0, "de": 0.16, "cr": 2.04, "roce": 14.7, "eps": 8.72, "pe": 57.8498, "bvps": 109.0, "pb": 4.628, "dps": 0.7567, "divYield": 0.0015, "mcap": 203123088550.0, "cmp": 504.45, "rs": "Reserve & Surplus have shown growth each year from Fy2018-2024", "high52": 728.6, "low52": 380.0}, {"company": "TATA Consumer Products Ltd", "sector": "FMCG", "ticker": "TATACONSUM", "yf": "TATACONSUM.NS", "lotSize": 900.0, "faceValue": 1.0, "de": 0.07, "cr": 2.12, "roce": 9.11, "eps": 14.82, "pe": 77.2605, "bvps": 184.36, "pb": 6.2107, "dps": null, "divYield": null, "mcap": 1131860720778.0, "cmp": 1145.0, "rs": "Increase", "high52": 1220.9, "low52": 1007.2}, {"company": "TVS Motor Company Ltd", "sector": "Automobiles", "ticker": "TVSMOTOR", "yf": "TVSMOTOR.NS", "lotSize": 700.0, "faceValue": 1.0, "de": 3.93, "cr": 0.88, "roce": 20.89, "eps": 60.94, "pe": 56.769, "bvps": 124.4, "pb": 27.8095, "dps": null, "divYield": null, "mcap": 1660141977063.0, "cmp": 3459.5, "rs": "Gradual Increase", "high52": 3970.0, "low52": 2640.0}, {"company": "Tanla Platforms Ltd", "sector": "IT", "ticker": "TANLA", "yf": "TANLA.NS", "lotSize": 1000, "faceValue": 1, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "Tata Chemicals Ltd", "sector": "Chemicals", "ticker": "TATACHEM", "yf": "TATACHEM.NS", "lotSize": 500.0, "faceValue": 10.0, "de": 0.32, "cr": 1.66, "roce": 10.43, "eps": 7.87, "pe": 103.8691, "bvps": 810.26, "pb": 1.0089, "dps": null, "divYield": null, "mcap": 208192331472.0, "cmp": 817.45, "rs": "Increasing", "high52": 1026.65, "low52": 580.3}, {"company": "Tata Communications Ltd", "sector": "Telecom", "ticker": "TATACOMM", "yf": "TATACOMM.NS", "lotSize": 500.0, "faceValue": 10.0, "de": 4.96, "cr": 0.59, "roce": 22.47, "eps": 36.57, "pe": 43.1009, "bvps": 54.34, "pb": 29.0063, "dps": null, "divYield": null, "mcap": 449160000000.0, "cmp": 1576.2, "rs": "High Increase", "high52": 2004.0, "low52": 1322.5}, {"company": "Tata Consultancy Services Ltd", "sector": "IT", "ticker": "TCS", "yf": "TCS.NS", "lotSize": 175.0, "faceValue": 1.0, "de": 0.0, "cr": 2.53, "roce": 57.63, "eps": 136.01, "pe": 18.1582, "bvps": 249.26, "pb": 9.9081, "dps": null, "divYield": null, "mcap": 8936674890000.0, "cmp": 2469.7, "rs": "Gradual Increase from 2020 to 2023, Decrease in 2022 from 2019", "high52": 3630.5, "low52": 2346.2}, {"company": "Tata Motors Ltd", "sector": "Automobiles", "ticker": "TATAMOTORS", "yf": "TATAMOTORS.NS", "lotSize": 1425.0, "faceValue": 2.0, "de": 2.77, "cr": 0.98, "roce": 6.45, "eps": null, "pe": null, "bvps": 155.77, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "Fluctuating , Decrease in 2022 with slow increase in 2023", "high52": null, "low52": null}, {"company": "Tata Steel Ltd", "sector": "Metals & Mining", "ticker": "TATASTEEL", "yf": "TATASTEEL.NS", "lotSize": 5500.0, "faceValue": 1.0, "de": 0.82, "cr": 0.89, "roce": 12.58, "eps": 7.36, "pe": 28.6644, "bvps": 95.31, "pb": 2.2135, "dps": null, "divYield": null, "mcap": 2632651634080.0, "cmp": 210.97, "rs": "Decreased in 2023", "high52": 218.24, "low52": 138.0}, {"company": "Tech Mahindra Ltd", "sector": "IT", "ticker": "TECHM", "yf": "TECHM.NS", "lotSize": 600.0, "faceValue": 5.0, "de": 0.06, "cr": 1.68, "roce": 21.51, "eps": 54.19, "pe": 27.0364, "bvps": 260.54, "pb": 5.6233, "dps": null, "divYield": null, "mcap": 1435761944323.0, "cmp": 1465.1, "rs": "Gradual Increase from 2019 to 2023", "high52": 1854.0, "low52": 1304.1}, {"company": "The Ramco Cements Ltd", "sector": "Cement", "ticker": "RAMCOCEM", "yf": "RAMCOCEM.NS", "lotSize": 850.0, "faceValue": 1.0, "de": 0.65, "cr": 0.61, "roce": 8.1, "eps": 24.34, "pe": 38.3566, "bvps": 306.0, "pb": 3.051, "dps": 2.6141, "divYield": 0.0028, "mcap": 219893608611.0, "cmp": 933.6, "rs": "Reserve & Surplus have shown growth each year from Fy2015-2024", "high52": 1214.5, "low52": 860.1}, {"company": "The Tata Power Company Ltd", "sector": "Power", "ticker": "TATAPOWER", "yf": "TATAPOWER.NS", "lotSize": 3375.0, "faceValue": 1.0, "de": 1.7, "cr": 0.87, "roce": 6.87, "eps": 11.86, "pe": 37.1037, "bvps": 107.04, "pb": 4.1111, "dps": null, "divYield": null, "mcap": 1405150325250.0, "cmp": 440.05, "rs": "Increasing", "high52": 464.9, "low52": 342.5}, {"company": "Thomas Cook India", "sector": "Hotels", "ticker": "THOMASCOOK", "yf": "THOMASCOOK.NS", "lotSize": 5000.0, "faceValue": 1.0, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "Titagarh Rail Systems", "sector": "Capital Goods", "ticker": "TITAGARH", "yf": "TITAGARH.NS", "lotSize": 1500, "faceValue": 10, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "Titan Company Ltd", "sector": "Retail", "ticker": "TITAN", "yf": "TITAN.NS", "lotSize": 375.0, "faceValue": 1.0, "de": 0.19, "cr": 1.69, "roce": 34.49, "eps": 53.71, "pe": 81.6682, "bvps": 134.08, "pb": 32.7148, "dps": null, "divYield": null, "mcap": 3890746508770.0, "cmp": 4386.4, "rs": "Increase", "high52": 4554.0, "low52": 3245.5}, {"company": "Torrent Pharmaceuticals Ltd", "sector": "Pharma", "ticker": "TORNTPHARM", "yf": "TORNTPHARM.NS", "lotSize": 500.0, "faceValue": 5.0, "de": 0.85, "cr": 0.98, "roce": 22.79, "eps": 67.12, "pe": 62.0664, "bvps": 175.88, "pb": 23.686, "dps": null, "divYield": null, "mcap": 1410504665331.0, "cmp": 4165.9, "rs": "Gradual Increase from 2019 to 2023", "high52": 4482.9, "low52": 3101.6}, {"company": "Torrent Power Ltd", "sector": "Power", "ticker": "TORNTPOWER", "yf": "TORNTPOWER.NS", "lotSize": 500.0, "faceValue": 10.0, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "Trent Ltd", "sector": "Retail", "ticker": "TRENT", "yf": "TRENT.NS", "lotSize": 100.0, "faceValue": 1.0, "de": 0.19, "cr": 2.17, "roce": 23.8, "eps": 48.37, "pe": 85.8962, "bvps": 132.0, "pb": 31.4758, "dps": 2.4929, "divYield": 0.0006, "mcap": 1476704561500.0, "cmp": 4154.8, "rs": "Reserve & Surplus have shown growth each year from Fy2015-2024 except March 2021.", "high52": 6261.0, "low52": 3275.5}, {"company": "Trident Ltd", "sector": "Textiles", "ticker": "TRIDENT", "yf": "TRIDENT.NS", "lotSize": 15000, "faceValue": 1, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "UCO Bank", "sector": "Banking", "ticker": "UCOBANK", "yf": "UCOBANK.NS", "lotSize": 20000.0, "faceValue": 10.0, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "UPL Ltd", "sector": "Chemicals", "ticker": "UPL", "yf": "UPL.NS", "lotSize": 1300.0, "faceValue": 2.0, "de": 0.86, "cr": 1.45, "roce": 13.64, "eps": 18.52, "pe": 34.2063, "bvps": 472.01, "pb": 1.3421, "dps": null, "divYield": null, "mcap": 536063853803.0, "cmp": 633.5, "rs": "Gradual Increase from 2019 to 2022 and decrease in 2023", "high52": 812.2, "low52": 565.15}, {"company": "UltraTech Cement Ltd", "sector": "Cement", "ticker": "ULTRACEMCO", "yf": "ULTRACEMCO.NS", "lotSize": 100.0, "faceValue": 10.0, "de": 0.18, "cr": 0.89, "roce": 12.11, "eps": 277.45, "pe": 41.6471, "bvps": 1747.06, "pb": 6.614, "dps": null, "divYield": null, "mcap": 3402071424000.0, "cmp": 11555.0, "rs": "Increasing", "high52": 13110.0, "low52": 10325.0}, {"company": "Union Bank of India", "sector": "Banking", "ticker": "UNIONBANK", "yf": "UNIONBANK.NS", "lotSize": 6000.0, "faceValue": 10.0, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "United Breweries Ltd", "sector": "FMCG", "ticker": "UBL", "yf": "UBL.NS", "lotSize": 400.0, "faceValue": 1.0, "de": 0.0, "cr": 1.62, "roce": 11.36, "eps": 15.46, "pe": 94.7025, "bvps": 150.13, "pb": 9.7522, "dps": null, "divYield": null, "mcap": 386973117600.0, "cmp": 1464.1, "rs": "Slow Increase", "high52": 2245.0, "low52": 1401.1}, {"company": "United Spirits Ltd", "sector": "FMCG", "ticker": "MCDOWELL-N", "yf": "MCDOWELL-N.NS", "lotSize": 625.0, "faceValue": 2.0, "de": 0.02, "cr": 1.72, "roce": null, "eps": null, "pe": null, "bvps": 82.48, "pb": 7.6806, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "5854", "high52": null, "low52": null}, {"company": "V-Mart Retail", "sector": "Retail", "ticker": "VMART", "yf": "VMART.NS", "lotSize": 750.0, "faceValue": 10.0, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "Vedanta Ltd", "sector": "Metals & Mining", "ticker": "VEDL", "yf": "VEDL.NS", "lotSize": 2000.0, "faceValue": 1.0, "de": 1.68, "cr": 0.69, "roce": 24.66, "eps": 35.99, "pe": 7.7522, "bvps": 132.97, "pb": 2.0982, "dps": null, "divYield": null, "mcap": 1088658471133.0, "cmp": 279.0, "rs": "Decline in 2023", "high52": 795.0, "low52": 271.5}, {"company": "Vishal Mega Mart Ltd", "sector": "Retail", "ticker": "VISHALMEGA", "yf": "VISHALMEGA.NS", "lotSize": 3500, "faceValue": 1, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "Vodafone Idea Ltd\n", "sector": "Telecom", "ticker": "IDEA", "yf": "IDEA.NS", "lotSize": 40000.0, "faceValue": 10.0, "de": -2.73, "cr": 0.3, "roce": -3.61, "eps": -2.64, "pe": -3.8409, "bvps": -13.7, "pb": -0.7401, "dps": 0.0, "divYield": 0.0, "mcap": 1098598057196.0, "cmp": 10.14, "rs": "From 2019-2024 Company Reserve & Surplus are decreasing continuously", "high52": 12.8, "low52": 6.12}, {"company": "Voltas Ltd", "sector": "Consumer Durables", "ticker": "VOLTAS", "yf": "VOLTAS.NS", "lotSize": 300.0, "faceValue": 1.0, "de": 0.11, "cr": 1.4, "roce": 8.51, "eps": 15.14, "pe": 94.0753, "bvps": 190.0, "pb": 7.4963, "dps": 5.2699, "divYield": 0.0037, "mcap": 469591550083.0, "cmp": 1424.3, "rs": "Reserve & Surplus have shown growth each year from Fy2014-2024 except March 2023.", "high52": 1582.5, "low52": 1186.8}, {"company": "Westlife Foodworld", "sector": "Hotels", "ticker": "WESTLIFE", "yf": "WESTLIFE.NS", "lotSize": 2000.0, "faceValue": 2.0, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "Wipro Ltd", "sector": "IT", "ticker": "WIPRO", "yf": "WIPRO.NS", "lotSize": 1500.0, "faceValue": 2.0, "de": 0.19, "cr": 2.47, "roce": 17.46, "eps": 12.56, "pe": 16.0748, "bvps": 119.27, "pb": 1.6928, "dps": null, "divYield": null, "mcap": 2112710825949.0, "cmp": 201.9, "rs": "Increase", "high52": 273.1, "low52": 186.5}, {"company": "Yes Bank Ltd", "sector": "Banking", "ticker": "YESBANK", "yf": "YESBANK.NS", "lotSize": 100000.0, "faceValue": 2.0, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "Zee Entertainment Enterprises Ltd", "sector": "Media", "ticker": "ZEEL", "yf": "ZEEL.NS", "lotSize": 3000.0, "faceValue": 1.0, "de": 0.0, "cr": 4.29, "roce": 7.89, "eps": 5.81, "pe": 15.3494, "bvps": 111.63, "pb": 0.7989, "dps": null, "divYield": null, "mcap": 85726347525.0, "cmp": 89.18, "rs": "Slow Increase", "high52": 151.7, "low52": 68.0}, {"company": "Zomato Ltd", "sector": "IT & Internet", "ticker": "ZOMATO", "yf": "ZOMATO.NS", "lotSize": 4500.0, "faceValue": 1.0, "de": null, "cr": null, "roce": null, "eps": null, "pe": null, "bvps": null, "pb": null, "dps": null, "divYield": null, "mcap": null, "cmp": null, "rs": "", "high52": null, "low52": null}, {"company": "Zydus Lifesciences Ltd", "sector": "Pharma", "ticker": "ZYDUSLIFE", "yf": "ZYDUSLIFE.NS", "lotSize": 900.0, "faceValue": 1.0, "de": 0.07, "cr": 1.81, "roce": 22.3, "eps": 49.08, "pe": 18.2865, "bvps": 217.0, "pb": 4.1359, "dps": 2.6925, "divYield": 0.003, "mcap": 903245974666.0, "cmp": 897.5, "rs": "Reserve & Surplus have shown growth each year from Fy2014-2024 except March 2020.", "high52": 1059.05, "low52": 835.5}];
+
+const live={}, fund={};
+let merged=[], filtered=[], sortColId=null, sortDir=1;
+let wsConn=null, wsOk=false, pollTimer=null, cdVal=0, cdTimer=null;
+let lastTsMs=null;
+
+const WS   = 'ws://localhost:8765';
+const HTTP = 'http://localhost:5001/api/quotes';
+const YFQ  = 'https://query1.finance.yahoo.com/v7/finance/quote';
+const YFS  = 'https://query1.finance.yahoo.com/v10/finance/quoteSummary';
+const PRX  = 'https://corsproxy.io/?';
+const POLL = 10;
+
+// ── WebSocket ──────────────────────────────────────────────────────────────
+function connectWS() {
+  try {
+    wsConn = new WebSocket(WS);
+    wsConn.onopen  = () => { wsOk=true; badge('live','⚡ WebSocket Live');
+      clearInterval(pollTimer); pollTimer=null;
+      showToast('WebSocket connected — updates every ~5s'); };
+    wsConn.onmessage = e => {
+      try { const m=JSON.parse(e.data);
+        if(m.type==='prices'){ Object.assign(live,m.data); mergeRender(); stamp(m.ts); }
+      } catch {}
+    };
+    wsConn.onclose = () => { wsOk=false; badge('poll','⏱ Yahoo Finance');
+      startPoll(); setTimeout(connectWS,9000); };
+    wsConn.onerror = () => wsConn.close();
+  } catch { badge('poll','⏱ Yahoo Finance'); startPoll(); }
+}
+
+function startPoll() {
+  if(pollTimer) return;
+  doFetch();
+  pollTimer = setInterval(()=>{ if(!wsOk) doFetch(); else{clearInterval(pollTimer);pollTimer=null;} }, POLL*1000);
+  startCd(POLL);
+}
+
+async function doFetch() {
+  const ok = await fetchLocal();
+  if(!ok) await fetchYF();
+}
+
+async function fetchLocal() {
+  try {
+    const r=await fetch(HTTP,{signal:AbortSignal.timeout(4000)});
+    if(!r.ok) return false;
+    const d=await r.json();
+    Object.assign(live,d.data||{});
+    mergeRender(); stamp(d.ts); badge('live','⚡ Local Server'); return true;
+  } catch { return false; }
+}
+
+async function fetchYF() {
+  showPg(8);
+  const syms=STOCKS.map(s=>s.yf);
+  let n=0;
+  for(let i=0;i<syms.length;i+=50) {
+    const batch=syms.slice(i,i+50);
+    const params=new URLSearchParams({
+      symbols:batch.join(','),
+      fields:'regularMarketPrice,regularMarketChange,regularMarketChangePercent,fiftyTwoWeekHigh,fiftyTwoWeekLow,trailingPE,epsTrailingTwelveMonths,bookValue,priceToBook,dividendRate,dividendYield,marketCap'
+    });
+    const url=`${YFQ}?${params}`;
+    let data=null;
+    for(const px of [false,true]) {
+      try {
+        const u=px?PRX+encodeURIComponent(url):url;
+        const r=await fetch(u,{headers:{'Accept':'application/json'},signal:AbortSignal.timeout(12000)});
+        if(r.ok){data=await r.json();break;}
+      } catch {}
+    }
+    if(data?.quoteResponse?.result) {
+      for(const q of data.quoteResponse.result) {
+        const t=q.symbol?.replace(/\.NS$/,'');
+        if(!t) continue;
+        live[t]={
+          cmp:q.regularMarketPrice, change:q.regularMarketChange,
+          changePct:q.regularMarketChangePercent,
+          high52:q.fiftyTwoWeekHigh, low52:q.fiftyTwoWeekLow,
+          pe:q.trailingPE, eps:q.epsTrailingTwelveMonths,
+          bvps:q.bookValue, pb:q.priceToBook,
+          dps:q.dividendRate, divYield:q.dividendYield, mcap:q.marketCap,
+        };
+        n++;
+      }
+    }
+    showPg(8+(i/syms.length)*88);
+  }
+  showPg(100);
+  mergeRender();
+  stamp(new Date().toLocaleTimeString('en-IN'));
+  document.getElementById('sLoaded').textContent=n+' / '+STOCKS.length;
+}
+
+function forceRefresh() {
+  const ic=document.getElementById('ri');
+  ic.innerHTML='<span class="spin"></span>';
+  doFetch().then(()=>{ic.textContent='↻';});
+  if(!wsOk) startCd(POLL);
+}
+
+// ── Fundamentals ───────────────────────────────────────────────────────────
+async function loadFundamentals() {
+  const prog=document.getElementById('fundProg');
+  prog.style.display='inline'; let done=0;
+  for(let i=0;i<STOCKS.length;i+=6) {
+    const chunk=STOCKS.slice(i,i+6);
+    await Promise.all(chunk.map(async s=>{
+      try {
+        const url=`${YFS}/${encodeURIComponent(s.yf)}?modules=financialData`;
+        let d=null;
+        for(const px of [false,true]) {
+          try{const u=px?PRX+encodeURIComponent(url):url;
+            const r=await fetch(u,{signal:AbortSignal.timeout(8000)});
+            if(r.ok){d=await r.json();break;}
+          }catch{}
+        }
+        const fd=d?.quoteSummary?.result?.[0]?.financialData;
+        if(fd) fund[s.ticker]={
+          de:fd.debtToEquity?.raw!=null?+(fd.debtToEquity.raw/100).toFixed(2):null,
+          cr:fd.currentRatio?.raw??null,
+          roe:fd.returnOnEquity?.raw!=null?+(fd.returnOnEquity.raw*100).toFixed(1):null,
+        };
+      }catch{}
+      done++;
+    }));
+    prog.textContent=`Fundamentals ${done}/${STOCKS.length}…`;
+    mergeRender();
+    await new Promise(r=>setTimeout(r,250));
+  }
+  prog.textContent='Loaded ✓'; setTimeout(()=>prog.style.display='none',3000);
+  showToast('D/E and CR loaded for all stocks');
+}
+
+// ── Merge ──────────────────────────────────────────────────────────────────
+function mergeRender() {
+  const spe={};
+  STOCKS.forEach(s=>{
+    const pe=(live[s.ticker]?.pe??s.pe);
+    if(pe&&pe>0&&pe<500)(spe[s.sector]=spe[s.sector]||[]).push(pe);
+  });
+  const indPE={};
+  Object.entries(spe).forEach(([sec,arr])=>{
+    arr.sort((a,b)=>a-b); indPE[sec]=+arr[Math.floor(arr.length/2)].toFixed(1);
+  });
+  const prevCmp={};
+  merged.forEach(r=>prevCmp[r.ticker]=r.cmp);
+
+  merged=STOCKS.map((s,i)=>{
+    const lv=live[s.ticker]||{}, fd=fund[s.ticker]||{};
+    const cmp   = lv.cmp   ?? s.cmp   ?? 0;
+    const h52   = lv.high52 ?? s.high52 ?? null;
+    const l52   = lv.low52  ?? s.low52  ?? null;
+    const lot   = s.lotSize||0;
+    const fromH = (h52&&cmp&&h52>0) ? +((cmp-h52)/h52*100).toFixed(2) : null;  // negative = below high
+    const fromL = (l52&&cmp&&l52>0) ? +((cmp-l52)/l52*100).toFixed(2) : null;  // positive = above low
+    const rangePct = (h52&&l52&&h52>l52&&cmp>0)
+      ? Math.max(0,Math.min(100,((cmp-l52)/(h52-l52))*100)) : null;
+    return {
+      _i:i+1, company:s.company, sector:s.sector, ticker:s.ticker,
+      cmp, high52:h52, low52:l52, fromHigh:fromH, fromLow:fromL, rangePct,
+      change:lv.change, changePct:lv.changePct,
+      de:fd.de??s.de, cr:fd.cr??s.cr, roce:fd.roe??s.roce,
+      eps:lv.eps??s.eps, pe:lv.pe??s.pe, indPE:indPE[s.sector],
+      bvps:lv.bvps??s.bvps, pb:lv.pb??s.pb,
+      faceValue:s.faceValue, dps:lv.dps??s.dps,
+      divYield:lv.divYield??s.divYield, mcap:lv.mcap??s.mcap,
+      lotSize:lot,
+      totalInv: cmp?cmp*lot:null,
+      price10:  cmp?cmp*.90:null,
+      price75:  cmp?cmp*.925:null,
+      price5:   cmp?cmp*.95:null,
+      rs:s.rs||'', _live:Object.keys(lv).length>0,
+      _changed:prevCmp[s.ticker]&&prevCmp[s.ticker]!==cmp, _up:lv.change>0,
+    };
+  });
+  applyFilters();
+}
+
+// ── Filters ────────────────────────────────────────────────────────────────
+function applyFilters() {
+  const sec=document.getElementById('secFil').value;
+  const q=document.getElementById('searchBox').value.trim().toLowerCase();
+  const maxPE=parseFloat(document.getElementById('maxPE').value)||Infinity;
+  const minMC=parseFloat(document.getElementById('minMcap').value)||0;
+  const chg=document.getElementById('chgFil').value;
+  const wk=document.getElementById('wkFil').value;
+
+  filtered=merged.filter(r=>{
+    if(sec!=='All'&&r.sector!==sec) return false;
+    if(q&&!r.company.toLowerCase().includes(q)&&!r.ticker.toLowerCase().includes(q)) return false;
+    if(isFinite(maxPE)&&r.pe&&r.pe>maxPE) return false;
+    if(minMC&&r.mcap&&r.mcap/1e7<minMC) return false;
+    if(chg==='g'&&!(r.changePct>0)) return false;
+    if(chg==='l'&&!(r.changePct<0)) return false;
+    if(wk==='nh'&&!(r.rangePct!=null&&r.rangePct>=80)) return false;
+    if(wk==='nl'&&!(r.rangePct!=null&&r.rangePct<=20)) return false;
+    return true;
+  });
+  if(sortColId) doSort();
+  renderTable(q); updateSummary();
+  document.getElementById('stockCount').textContent=`Showing ${filtered.length} / ${merged.length} stocks`;
+}
+
+// ── Sort ───────────────────────────────────────────────────────────────────
+const CK={no:r=>r._i,company:r=>r.company,sector:r=>r.sector,ticker:r=>r.ticker,
+  cmp:r=>r.cmp, high52:r=>r.high52, fromHigh:r=>r.fromHigh,
+  low52:r=>r.low52, fromLow:r=>r.fromLow,
+  change:r=>r.change, changePct:r=>r.changePct,
+  de:r=>r.de, cr:r=>r.cr, roce:r=>r.roce, eps:r=>r.eps,
+  pe:r=>r.pe, indPE:r=>r.indPE, bvps:r=>r.bvps, pb:r=>r.pb,
+  faceValue:r=>r.faceValue, dps:r=>r.dps, divYield:r=>r.divYield,
+  mcap:r=>r.mcap, lotSize:r=>r.lotSize, totalInv:r=>r.totalInv,
+  price10:r=>r.price10, price75:r=>r.price75, price5:r=>r.price5};
+
+function sortBy(col) {
+  if(sortColId===col) sortDir*=-1; else{sortColId=col;sortDir=1;}
+  doSort();
+  renderTable(document.getElementById('searchBox').value.trim().toLowerCase());
+  document.querySelectorAll('thead .col-row th').forEach(th=>{
+    th.classList.remove('act');
+    const si=th.querySelector('.si'); if(si) si.textContent='';
+  });
+  // find the th with matching onclick
+  document.querySelectorAll('thead .col-row th').forEach(th=>{
+    const oc=th.getAttribute('onclick')||'';
+    if(oc.includes(`'${col}'`)||oc.includes(`"${col}"`)) {
+      th.classList.add('act');
+      const si=th.querySelector('.si');
+      if(si) si.textContent=sortDir>0?' ▲':' ▼';
+    }
+  });
+}
+function doSort() {
+  const fn=CK[sortColId]; if(!fn) return;
+  const nl=sortDir>0?Infinity:-Infinity;
+  filtered.sort((a,b)=>{
+    let va=fn(a)??nl, vb=fn(b)??nl;
+    if(typeof va==='string') return va.localeCompare(vb)*sortDir;
+    return (va-vb)*sortDir;
+  });
+}
+
+// ── Render ─────────────────────────────────────────────────────────────────
+const f=(v,d=2)=>v==null||isNaN(v)?'<span class="na">—</span>':(+v).toLocaleString('en-IN',{minimumFractionDigits:d,maximumFractionDigits:d});
+const fMC=v=>{
+  if(v==null||isNaN(v)) return '<span class="na">—</span>';
+  const c=v/1e7;
+  if(c>=1e5) return (c/1e5).toFixed(1)+' LCr';
+  if(c>=1e3) return (c/1e3).toFixed(1)+'k Cr';
+  return c.toFixed(0)+' Cr';
+};
+const hl=(t,q)=>!q||!t?t:t.replace(new RegExp(`(${q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')})`, 'gi'),'<mark>$1</mark>');
+
+function rngBar(pct) {
+  if(pct==null) return '<span class="na">—</span>';
+  const col=pct<20?'#dc2626':pct<40?'#ef4444':pct<60?'#f59e0b':pct<80?'#3b82f6':'#16a34a';
+  const label=pct<20?'Near Low':pct<40?'Lower Half':pct<60?'Mid Range':pct<80?'Upper Half':'Near High';
+  return `<div class="rng-track"><div class="rng-fill" style="width:${pct.toFixed(1)}%;background:${col}"></div></div>
+    <span class="rng-pct" style="color:${col}">${pct.toFixed(0)}% &mdash; ${label}</span>`;
+}
+
+function renderTable(q='') {
+  const tbody=document.getElementById('tbody');
+  if(!filtered.length) {
+    tbody.innerHTML='<tr><td colspan="32" class="no-data">No stocks match your filters.</td></tr>';
+    return;
+  }
+  const rows=filtered.map((r,i)=>{
+    const cc=r.changePct>0?'pos':r.changePct<0?'neg':'';
+    const cs=r.changePct>0?'+':'';
+    const pePct=r.pe&&r.indPE?((r.pe-r.indPE)/r.indPE*100):null;
+    const peBadge=pePct!=null?`<small class="${pePct>0?'neg':'pos'}">(${pePct>0?'+':''}${pePct.toFixed(0)}%)</small>`:'';
+    const flashCls=r._changed?(r._up?' fga':' fra'):'';
+    const dy=r.divYield!=null
+      ?(r.divYield<1?(r.divYield*100).toFixed(2)+'%':r.divYield.toFixed(2)+'%')
+      :'<span class="na">—</span>';
+    // fromHigh: negative = below high (e.g. -15.3% means 15.3% below 52W high)
+    const fhCls=r.fromHigh!=null?(r.fromHigh>=-5?'pos':'neg'):'';
+    const flCls=r.fromLow!=null?(r.fromLow>=20?'pos':''):'';
+    return `<tr>
+      <td class="s0">${i+1}</td>
+      <td class="s1${flashCls}" title="${r.company}">${hl(r.company,q)}</td>
+      <td class="s2"><span class="sec">${r.sector}</span></td>
+      <td class="s3"><b>${hl(r.ticker,q)}</b></td>
+      <td class="${flashCls}">${f(r.cmp)}</td>
+      <td class="hi52">${f(r.high52)}</td>
+      <td class="${fhCls}">${r.fromHigh!=null?(r.fromHigh>0?'+':'')+r.fromHigh.toFixed(1)+'%':'<span class="na">—</span>'}</td>
+      <td class="na" style="font-size:10px">—</td>
+      <td class="lo52">${f(r.low52)}</td>
+      <td class="${flCls}">${r.fromLow!=null?'+'+r.fromLow.toFixed(1)+'%':'<span class="na">—</span>'}</td>
+      <td class="na" style="font-size:10px">—</td>
+      <td class="rng-wrap">${rngBar(r.rangePct)}</td>
+      <td class="${cc}">${r.change!=null?cs+f(r.change):'<span class="na">—</span>'}</td>
+      <td class="${cc}">${r.changePct!=null?cs+r.changePct.toFixed(2)+'%':'<span class="na">—</span>'}</td>
+      <td>${f(r.de)}</td>
+      <td>${f(r.cr)}</td>
+      <td>${r.roce!=null?f(r.roce,1)+'%':'<span class="na">—</span>'}</td>
+      <td>${f(r.eps)}</td>
+      <td>${f(r.pe,1)}${peBadge}</td>
+      <td>${f(r.indPE,1)}</td>
+      <td>${f(r.bvps)}</td>
+      <td>${f(r.pb)}</td>
+      <td>${f(r.faceValue,0)}</td>
+      <td>${f(r.dps)}</td>
+      <td>${dy}</td>
+      <td>${fMC(r.mcap)}</td>
+      <td>${r.lotSize?r.lotSize.toLocaleString('en-IN'):'<span class="na">—</span>'}</td>
+      <td class="buy">${f(r.totalInv,0)}</td>
+      <td class="buy">${f(r.price10)}</td>
+      <td class="buy">${f(r.price75)}</td>
+      <td class="buy">${f(r.price5)}</td>
+      <td style="text-align:left;font-size:10px;color:#777;max-width:185px;overflow:hidden;text-overflow:ellipsis" title="${r.rs}">${r.rs||'<span class="na">—</span>'}</td>
+    </tr>`;
+  });
+  tbody.innerHTML=rows.join('');
+}
+
+// ── Summary ────────────────────────────────────────────────────────────────
+function updateSummary() {
+  const lv=filtered.filter(r=>r._live);
+  document.getElementById('sTotal').textContent=filtered.length;
+  document.getElementById('sG').textContent=lv.filter(r=>r.changePct>0).length||'—';
+  document.getElementById('sL').textContent=lv.filter(r=>r.changePct<0).length||'—';
+  document.getElementById('sF').textContent=lv.filter(r=>r.changePct===0).length||'—';
+  const pes=filtered.filter(r=>r.pe&&r.pe>0&&r.pe<500).map(r=>r.pe);
+  document.getElementById('sAvgPE').textContent=pes.length?(pes.reduce((a,b)=>a+b,0)/pes.length).toFixed(1):'—';
+  document.getElementById('sNH').textContent=filtered.filter(r=>r.rangePct!=null&&r.rangePct>=80).length||'—';
+  document.getElementById('sNL').textContent=filtered.filter(r=>r.rangePct!=null&&r.rangePct<=20).length||'—';
+}
+
+// ── Misc helpers ───────────────────────────────────────────────────────────
+function badge(cls,txt){const el=document.getElementById('wsBadge');el.className='wbadge '+cls;el.textContent=txt;}
+function showPg(p){const b=document.getElementById('pg'),f=document.getElementById('pgF');
+  if(p<=0||p>=100){setTimeout(()=>{b.style.display='none';f.style.width='0%';},700);}
+  else{b.style.display='block';f.style.width=p+'%';}}
+function stamp(ts){
+  lastTsMs=Date.now();
+  document.getElementById('lstUpd').textContent='✓ '+ts;
+  document.getElementById('liveDot').classList.remove('off');
+}
+function showToast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3500);}
+function startCd(s){
+  clearInterval(cdTimer); cdVal=s;
+  const el=document.getElementById('cdBadge');
+  cdTimer=setInterval(()=>{
+    if(wsOk){el.textContent='⚡ Live push active';return;}
+    el.textContent=`Next: ${cdVal--}s`;
+    if(cdVal<0) cdVal=s;
+  },1000);
+}
+setInterval(()=>{
+  if(!lastTsMs) return;
+  const s=Math.round((Date.now()-lastTsMs)/1000);
+  const el=document.getElementById('sAge');
+  el.textContent=s<5?'Just now':s<60?s+'s ago':Math.floor(s/60)+'m ago';
+  el.style.color=s>60?'#dc2626':s>30?'#d97706':'#16a34a';
+},1000);
+
+// ── Export ─────────────────────────────────────────────────────────────────
+function exportXL() {
+  if(!filtered.length){showToast('No data to export');return;}
+  const hdr=['#','Company','Sector','Ticker','CMP','52W High','% from High',
+    '52W Low','% from Low','52W Position %','Chg ₹','Chg %',
+    'D/E','CR','ROCE %','EPS','P/E','Ind PE','BVPS','P/B','FV','DPS','Div Yield',
+    'MCap Cr','Lot','Total Inv','@10% off','@7.5% off','@5% off','Reserve & Surplus'];
+  const rows=filtered.map((r,i)=>[
+    i+1,r.company,r.sector,r.ticker,r.cmp,
+    r.high52,r.fromHigh,r.low52,r.fromLow,
+    r.rangePct!=null?+r.rangePct.toFixed(1):null,
+    r.change,r.changePct,r.de,r.cr,r.roce,r.eps,r.pe,r.indPE,
+    r.bvps,r.pb,r.faceValue,r.dps,r.divYield,
+    r.mcap?+(r.mcap/1e7).toFixed(0):null,
+    r.lotSize,r.totalInv,r.price10,r.price75,r.price5,r.rs,
+  ]);
+  const wb=XLSX.utils.book_new();
+  const ws=XLSX.utils.aoa_to_sheet([hdr,...rows]);
+  ws['!cols']=[4,30,15,12,10,10,9,10,9,10,9,8,7,7,8,10,7,7,10,7,6,8,9,12,9,14,11,11,11,40].map(w=>({wch:w}));
+  XLSX.utils.book_append_sheet(wb,ws,'NSE F&O Dashboard');
+  XLSX.writeFile(wb,`NSE_FnO_Dashboard_${new Date().toISOString().slice(0,10)}.xlsx`);
+  showToast('Excel exported!');
+}
+
+// ── Init ───────────────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded',()=>{
+  merged=STOCKS.map((s,i)=>{
+    const c=s.cmp||0, l=s.lotSize||0;
+    const h=s.high52??null, lo=s.low52??null;
+    const rangePct=(h&&lo&&h>lo&&c>0)?Math.max(0,Math.min(100,((c-lo)/(h-lo))*100)):null;
+    const fromH=(h&&c)?+((c-h)/h*100).toFixed(2):null;
+    const fromL=(lo&&c)?+((c-lo)/lo*100).toFixed(2):null;
+    return {_i:i+1,company:s.company,sector:s.sector,ticker:s.ticker,
+      cmp:c,high52:h,low52:lo,fromHigh:fromH,fromLow:fromL,rangePct,
+      change:null,changePct:null,
+      de:s.de,cr:s.cr,roce:s.roce,eps:s.eps,pe:s.pe,indPE:null,
+      bvps:s.bvps,pb:s.pb,faceValue:s.faceValue,dps:s.dps,divYield:s.divYield,
+      mcap:s.mcap,lotSize:l,totalInv:c?c*l:null,
+      price10:c?c*.9:null,price75:c?c*.925:null,price5:c?c*.95:null,
+      rs:s.rs||'',_live:false,_changed:false,_up:false};
+  });
+  filtered=[...merged];
+  renderTable(); updateSummary();
+  document.getElementById('stockCount').textContent=`Showing ${filtered.length} / ${merged.length} stocks`;
+  // Auto connect
+  connectWS();
+  setTimeout(()=>{ if(!wsOk){ badge('poll','⏱ Yahoo Finance'); startPoll(); } },3000);
+});
+</script>
+</body>
+</html>
